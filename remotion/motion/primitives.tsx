@@ -78,12 +78,20 @@ export function FilmTexture(){
 }
 
 export function TransitionOverlay({scene}:{scene:Scene}){
-  const frame=useCurrentFrame(); const d=scene.durationInFrames; const edge=18; const incoming=progress(frame,0,edge); const outgoing=progress(frame,d-edge,d); const accent=scene.accent;
-  if(scene.transition==='wipe')return <div style={{position:'absolute',zIndex:100,inset:0,background:accent,transform:`translateX(${interpolate(frame,[0,edge,d-edge,d],[-105,105,105,-105],clamp)}%)`,mixBlendMode:'screen',opacity:.72}}/>;
-  if(scene.transition==='light-sweep')return <div style={{position:'absolute',zIndex:100,top:-200,bottom:-200,width:260,left:`${interpolate(frame,[0,edge,d-edge,d],[-35,130,130,-35],clamp)}%`,background:'linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent)',filter:'blur(24px)',transform:'rotate(14deg)',mixBlendMode:'screen'}}/>;
-  if(scene.transition==='film-burn')return <AbsoluteFill style={{zIndex:100,opacity:Math.max(0,1-incoming)+outgoing,background:`radial-gradient(circle at 75% 40%,#fff7c4,${accent} 18%,#e4551a 42%,#120400 75%)`,mixBlendMode:'screen'}}/>;
-  if(scene.transition==='zoom')return <AbsoluteFill style={{zIndex:100,opacity:(1-incoming)*.75+outgoing*.75,background:`radial-gradient(circle,transparent 5%,${accent}55 45%,#000 80%)`,transform:`scale(${.6+incoming*.8-outgoing*.4})`}}/>;
-  return <AbsoluteFill style={{zIndex:100,background:'#000',opacity:Math.max(0,1-incoming)+outgoing}}/>;
+  const frame=useCurrentFrame();
+  const d=Math.max(2,scene.durationInFrames);
+  // Keep all interpolation points strictly increasing, including for short scenes.
+  const edge=Math.min(18,Math.max(1,Math.floor((d-1)/2)));
+  const inputRange=[0,edge,d-edge,d];
+  const incoming=progress(frame,0,edge);
+  const outgoing=progress(frame,d-edge,d);
+  const accent=scene.accent;
+  const edgeOpacity=Math.min(1,Math.max(0,1-incoming)+outgoing);
+  if(scene.transition==='wipe')return <div style={{position:'absolute',zIndex:100,inset:0,background:accent,transform:`translateX(${interpolate(frame,inputRange,[-105,105,105,-105],clamp)}%)`,mixBlendMode:'screen',opacity:.72}}/>;
+  if(scene.transition==='light-sweep')return <div style={{position:'absolute',zIndex:100,top:-200,bottom:-200,width:260,left:`${interpolate(frame,inputRange,[-35,130,130,-35],clamp)}%`,background:'linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent)',filter:'blur(24px)',transform:'rotate(14deg)',mixBlendMode:'screen'}}/>;
+  if(scene.transition==='film-burn')return <AbsoluteFill style={{zIndex:100,opacity:edgeOpacity,background:`radial-gradient(circle at 75% 40%,#fff7c4,${accent} 18%,#e4551a 42%,#120400 75%)`,mixBlendMode:'screen'}}/>;
+  if(scene.transition==='zoom')return <AbsoluteFill style={{zIndex:100,opacity:Math.min(1,(1-incoming)*.75+outgoing*.75),background:`radial-gradient(circle,transparent 5%,${accent}55 45%,#000 80%)`,transform:`scale(${.6+incoming*.8-outgoing*.4})`}}/>;
+  return <AbsoluteFill style={{zIndex:100,background:'#000',opacity:edgeOpacity}}/>;
 }
 
 export function SceneShell({scene,children}:{scene:Scene;children:React.ReactNode}){

@@ -98,8 +98,8 @@ export default function Home(){
       </div>
       <label>صف الفيديو المطلوب</label><textarea value={prompt} onChange={e=>setPrompt(e.target.value)} rows={7}/>
       <div className="row"><div><label>اللغة</label><select value={language} onChange={e=>setLanguage(e.target.value as any)}><option value="ar">العربية</option><option value="en">English</option></select></div><div><label>المدة</label><select value={duration} onChange={e=>setDuration(Number(e.target.value))}><option value="15">15 ثانية</option><option value="30">30 ثانية</option><option value="60">60 ثانية</option></select></div></div>
-      <label className="upload">رفع صور وفيديوهات وصوت<input hidden multiple type="file" accept="image/*,video/*,audio/*" onChange={e=>upload(e.target.files)}/></label>
-      <label className="upload secondary">رفع الشعار<input hidden type="file" accept="image/*" onChange={e=>upload(e.target.files,'logo')}/></label>
+      <label className="upload">رفع صور وفيديوهات وصوت<input hidden multiple type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm" onChange={e=>upload(e.target.files)}/></label>
+      <label className="upload secondary">رفع الشعار<input hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={e=>upload(e.target.files,'logo')}/></label>
       <div className="assets">{assets.map(a=><span key={a.id}>{a.type} · {a.name}</span>)}</div>
       <button className="primary" disabled={!!busy || isGenerating} onClick={() => generate(false)}>{busy||'✨ إنشاء خطة الفيديو'}</button>
       <button className="secondary" disabled={!!busy || isGenerating} onClick={() => generate(true)} style={{ marginTop: '8px', background: '#222', border: '1px solid #444', color: '#fff', fontSize: '12px' }}>استخدام المخطط المحلي عند فشل الذكاء الاصطناعي</button>
@@ -110,7 +110,7 @@ export default function Home(){
       <header><div><strong>{project.title}</strong><small>{frames} frame · {project.fps} FPS</small></div><button onClick={render} disabled={!!busy || isRendering}>{isRendering ? "جارٍ تصدير الفيديو..." : "تصدير MP4"}</button></header>
       <div className="editor-preview-viewport">
         <div className="editor-player-frame" style={{aspectRatio: project.width && project.height ? `${project.width} / ${project.height}` : '9 / 16'}}>
-          <Player component={VideoComposition} inputProps={{project}} durationInFrames={frames} compositionWidth={project.width} compositionHeight={project.height} fps={project.fps} controls loop style={{width:'100%',height:'100%',display:'block',backgroundColor:'#050606'}}/>
+          <Player acknowledgeRemotionLicense component={VideoComposition} inputProps={{project}} durationInFrames={frames} compositionWidth={project.width} compositionHeight={project.height} fps={project.fps} controls loop style={{width:'100%',height:'100%',display:'block',backgroundColor:'#050606'}}/>
         </div>
       </div>
       <div className="editor-timeline">{project.scenes.map((s,i)=><button key={s.id} onClick={()=>setSelected(i)} className={selected===i?'active':''} style={{flex:s.durationInFrames}}><b>{String(i+1).padStart(2,'0')}</b><span>{s.type}</span></button>)}</div>

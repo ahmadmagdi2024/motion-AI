@@ -12,14 +12,14 @@
     "remotion:render:test": "remotion render remotion/index.ts AiVideo public/renders/test.mp4"
   },
   "dependencies": {
-    "@remotion/bundler": "^4.0.529",
-    "@remotion/cli": "^4.0.529",
-    "@remotion/player": "^4.0.529",
-    "@remotion/renderer": "^4.0.529",
+    "@remotion/bundler": "4.0.529",
+    "@remotion/cli": "4.0.529",
+    "@remotion/player": "4.0.529",
+    "@remotion/renderer": "4.0.529",
     "next": "^14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "^4.0.529",
+    "remotion": "4.0.529",
     "server-only": "^0.0.1",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"
