@@ -1,7 +1,7 @@
 import "server-only";
 import {NextResponse} from "next/server";
 import {z} from "zod";
-import {AssetSchema, ProjectSchema, totalFrames, type VideoProject} from "@/lib/schema";
+import {AssetSchema, HexColor, ProjectSchema, totalFrames, type VideoProject} from "@/lib/schema";
 import {createLocalProject} from "@/lib/local-planner";
 import {cookies} from "next/headers";
 import {sendOpenRouterRequest, extractJsonFromResponse} from "@/lib/openrouter/client";
@@ -11,11 +11,19 @@ import {prepareVisionMessages} from "@/lib/media/analyze";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const BrandColorsInput = z.object({
+  primaryColor: HexColor.optional(),
+  secondaryColor: HexColor.optional(),
+  accentColor: HexColor.optional()
+}).optional();
+
 const Input = z.object({
-  prompt: z.string().min(8).max(5000),
+  prompt: z.string().min(4).max(5000),
   language: z.enum(["ar", "en"]),
   duration: z.number().int().min(10).max(120),
   assets: z.array(AssetSchema),
+  brandColors: BrandColorsInput,
+  requestedScreenTypes: z.array(z.string()).optional(),
   forceFallback: z.boolean().optional().default(false)
 });
 
@@ -40,10 +48,12 @@ function cleanAssetIds(project: VideoProject, validAssets: Set<string>) {
     if (scene.backgroundAssetId && !validAssets.has(scene.backgroundAssetId)) {
       scene.backgroundAssetId = undefined;
     }
-    // Also clean logoAssetId if not present
-    if ((scene as any).logoAssetId && !validAssets.has((scene as any).logoAssetId)) {
-      (scene as any).logoAssetId = undefined;
+    if ((scene as any).foregroundAssetId && !validAssets.has((scene as any).foregroundAssetId)) {
+      (scene as any).foregroundAssetId = undefined;
     }
+  }
+  if (project.brand.logoAssetId && !validAssets.has(project.brand.logoAssetId)) {
+    project.brand.logoAssetId = undefined;
   }
 }
 
@@ -62,12 +72,26 @@ export async function POST(req: Request) {
     
     if (!apiKey || input.forceFallback) {
       usedFallback = true;
-      finalProject = createLocalProject(input);
+      finalProject = createLocalProject({
+        prompt: input.prompt,
+        language: input.language,
+        duration: input.duration,
+        assets: input.assets,
+        brandColors: input.brandColors,
+        requestedScreenTypes: input.requestedScreenTypes
+      });
     } else {
       try {
-        const fallback = createLocalProject(input);
+        const fallback = createLocalProject({
+          prompt: input.prompt,
+          language: input.language,
+          duration: input.duration,
+          assets: input.assets,
+          brandColors: input.brandColors,
+          requestedScreenTypes: input.requestedScreenTypes
+        });
         
-        // Prepare Context
+        // Prepare Context with Brand Colors and Requested Screen Templates
         const projectContext = {
           userRequest: input.prompt,
           language: input.language,
@@ -75,6 +99,12 @@ export async function POST(req: Request) {
           fps: 30,
           width: 1080,
           height: 1920,
+          brandColors: {
+            primaryColor: input.brandColors?.primaryColor || fallback.brand.primaryColor,
+            secondaryColor: input.brandColors?.secondaryColor || fallback.brand.secondaryColor,
+            accentColor: input.brandColors?.accentColor || fallback.brand.accentColor
+          },
+          requestedScreenTypes: input.requestedScreenTypes || [],
           assets: input.assets.map(a => ({
             assetId: a.id,
             type: a.type,
@@ -83,22 +113,27 @@ export async function POST(req: Request) {
           }))
         };
 
-        const contentParts: any[] = [
-          { type: "text", text: `PROJECT_CONTEXT:\n${JSON.stringify(projectContext, null, 2)}\n\nUSER_REQUEST:\n${input.prompt}` }
-        ];
+        const screenDirective = input.requestedScreenTypes && input.requestedScreenTypes.length > 0
+          ? `\n\nEXPLICIT SCREEN SEQUENCE DIRECTIVE:\nThe user has deliberately selected the exact sequence of ${input.requestedScreenTypes.length} screen templates: ${JSON.stringify(input.requestedScreenTypes)}. You MUST generate exactly ${input.requestedScreenTypes.length} scenes matching these exact template types in this exact sequence!`
+          : '';
 
-        if (visionEnabled) {
+        const userPromptText = `PROJECT_CONTEXT:\n${JSON.stringify(projectContext, null, 2)}\n\nUSER_CREATIVE_REQUEST:\n${input.prompt}${screenDirective}`;
+
+        let userMessageContent: any;
+        if (visionEnabled && input.assets.some(a => a.type === 'image' || a.type === 'logo')) {
           const visionMessages = await prepareVisionMessages(input.assets);
-          contentParts.push(...visionMessages);
+          userMessageContent = [{ type: "text", text: userPromptText }, ...visionMessages];
+        } else {
+          userMessageContent = userPromptText;
         }
 
         const payload = {
           model,
           messages: [
             { role: "system" as const, content: OPENROUTER_SYSTEM_PROMPT },
-            { role: "user" as const, content: contentParts }
+            { role: "user" as const, content: userMessageContent }
           ],
-          temperature: 0.4,
+          temperature: 0.7,
           max_tokens: 4000,
           response_format: { type: "json_object" }
         };
@@ -118,12 +153,29 @@ export async function POST(req: Request) {
           width: 1080,
           height: 1920,
           assets: input.assets,
-          brand: { ...fallback.brand, ...(rawJson.brand || {}) },
-          scenes: (rawJson.scenes || []).map((s: any, i: number) => ({
-            ...fallback.scenes[Math.min(i, fallback.scenes.length - 1)],
-            ...s,
-            id: crypto.randomUUID()
-          }))
+          brand: {
+            ...fallback.brand,
+            ...(input.brandColors || {}),
+            ...(rawJson.brand || {})
+          },
+          scenes: (rawJson.scenes && rawJson.scenes.length > 0 ? rawJson.scenes : fallback.scenes).map((s: any, i: number) => {
+            const fallbackScene = fallback.scenes[Math.min(i, fallback.scenes.length - 1)];
+            const explicitType = input.requestedScreenTypes && input.requestedScreenTypes[i]
+              ? input.requestedScreenTypes[i]
+              : s.type || fallbackScene.type;
+
+            return {
+              ...fallbackScene,
+              ...s,
+              type: explicitType,
+              icon: s.icon || fallbackScene.icon || 'sparkles',
+              accent: s.accent || fallbackScene.accent,
+              backgroundColor: s.backgroundColor || fallbackScene.backgroundColor,
+              textColor: s.textColor || fallbackScene.textColor || '#ffffff',
+              iconColor: s.iconColor || s.accent || fallbackScene.iconColor,
+              id: crypto.randomUUID()
+            };
+          })
         };
         
         const validAssets = new Set(input.assets.map(a => a.id));
@@ -135,7 +187,13 @@ export async function POST(req: Request) {
       } catch (aiError) {
         console.error("OpenRouter Error, falling back to local:", aiError);
         usedFallback = true;
-        finalProject = createLocalProject(input);
+        finalProject = createLocalProject({
+          prompt: input.prompt,
+          language: input.language,
+          duration: input.duration,
+          assets: input.assets,
+          brandColors: input.brandColors
+        });
       }
     }
 
