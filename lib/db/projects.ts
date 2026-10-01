@@ -5,6 +5,31 @@ import fsSync from 'node:fs';
 import crypto from 'node:crypto';
 import { DEFAULT_MOTION_FILM } from '@/lib/motion-engine/master-template';
 
+export interface ProjectTranslation {
+  language: string; // e.g. "en", "fr", "es", "de", "tr", "ru", "zh", "ja"
+  languageName: string; // e.g. "English", "Français", "Español"
+  title: string;
+  htmlCode: string;
+  voiceoverScript?: Array<{
+    sceneIndex: number;
+    startTime: number;
+    endTime: number;
+    durationSeconds: number;
+    headline?: string;
+    narration: string;
+    audioUrl?: string;
+  }>;
+  audioTrack?: {
+    id: string;
+    name: string;
+    url: string;
+    duration: number;
+    type?: string;
+  } | null;
+  renderedVideoUrl?: string;
+  translatedAt: string;
+}
+
 export interface MotionProject {
   id: string;
   title: string;
@@ -13,6 +38,10 @@ export interface MotionProject {
   prompt?: string;
   htmlCode: string;
   renderedVideoUrl?: string; // e.g. /renders/uuid.mp4
+  audioTrack?: any;
+  voiceoverScript?: any[];
+  currentLanguage?: string;
+  translations?: Record<string, ProjectTranslation>;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +60,8 @@ async function ensureDb(): Promise<MotionProject[]> {
           modelUsed: 'Motion AI Studio Engine',
           prompt: 'فيلم سينمائي احترافي لمصنع عطور أرتيك - 6 مشاهد، 60 ثانية، هوية بصرية فاخرة',
           htmlCode: DEFAULT_MOTION_FILM,
+          currentLanguage: 'ar',
+          translations: {},
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -66,6 +97,10 @@ export async function saveProject(data: {
   prompt?: string;
   htmlCode: string;
   renderedVideoUrl?: string;
+  audioTrack?: any;
+  voiceoverScript?: any[];
+  currentLanguage?: string;
+  translations?: Record<string, ProjectTranslation>;
 }): Promise<MotionProject> {
   const projects = await ensureDb();
   const now = new Date().toISOString();
@@ -75,9 +110,14 @@ export async function saveProject(data: {
   if (data.id) {
     const existingIndex = projects.findIndex((p) => p.id === data.id);
     if (existingIndex >= 0) {
+      const existing = projects[existingIndex];
       project = {
-        ...projects[existingIndex],
+        ...existing,
         ...data,
+        translations: {
+          ...(existing.translations || {}),
+          ...(data.translations || {}),
+        },
         updatedAt: now,
       };
       projects[existingIndex] = project;
@@ -90,6 +130,10 @@ export async function saveProject(data: {
         prompt: data.prompt,
         htmlCode: data.htmlCode,
         renderedVideoUrl: data.renderedVideoUrl,
+        audioTrack: data.audioTrack,
+        voiceoverScript: data.voiceoverScript,
+        currentLanguage: data.currentLanguage || 'ar',
+        translations: data.translations || {},
         createdAt: now,
         updatedAt: now,
       };
@@ -104,6 +148,10 @@ export async function saveProject(data: {
       prompt: data.prompt,
       htmlCode: data.htmlCode,
       renderedVideoUrl: data.renderedVideoUrl,
+      audioTrack: data.audioTrack,
+      voiceoverScript: data.voiceoverScript,
+      currentLanguage: data.currentLanguage || 'ar',
+      translations: data.translations || {},
       createdAt: now,
       updatedAt: now,
     };
@@ -112,6 +160,24 @@ export async function saveProject(data: {
 
   await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
   return project;
+}
+
+export async function saveProjectTranslation(
+  projectId: string,
+  translation: ProjectTranslation
+): Promise<MotionProject | null> {
+  const projects = await ensureDb();
+  const p = projects.find((item) => item.id === projectId);
+  if (!p) return null;
+
+  if (!p.translations) {
+    p.translations = {};
+  }
+  p.translations[translation.language] = translation;
+  p.updatedAt = new Date().toISOString();
+
+  await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
+  return p;
 }
 
 export async function updateProjectRenderUrl(id: string, renderedVideoUrl: string): Promise<boolean> {

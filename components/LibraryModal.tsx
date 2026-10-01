@@ -24,9 +24,13 @@ export interface LibraryProject {
   prompt?: string;
   htmlCode: string;
   renderedVideoUrl?: string;
+  translations?: Record<string, any>;
+  currentLanguage?: string;
+  audioTrack?: any;
   createdAt: string;
   updatedAt: string;
 }
+
 
 interface LibraryModalProps {
   isOpen: boolean;
@@ -420,7 +424,28 @@ export function LibraryModal({
                               {proj.modelUsed.split("/").pop()}
                             </span>
                           )}
+
+                          {proj.translations && Object.keys(proj.translations).length > 0 && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                background: "rgba(217, 182, 109, 0.15)",
+                                color: "var(--pale-gold)",
+                                border: "1px solid rgba(217, 182, 109, 0.3)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                              title={`يحتوي على ${Object.keys(proj.translations).length + 1} لغات متوفرة`}
+                            >
+                              <span>🌐</span>
+                              <span>{Object.keys(proj.translations).length + 1} لغات</span>
+                            </span>
+                          )}
                         </div>
+
 
                         {isCurrent && (
                           <span

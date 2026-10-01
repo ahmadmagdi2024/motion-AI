@@ -17,25 +17,40 @@ import {
   FileText,
   Copy,
   Check,
+  ChevronDown,
+  Plus,
 } from "lucide-react";
 import { AudioPickerModal, type AudioTrack } from "./AudioPickerModal";
 import { VoiceoverModal } from "./VoiceoverModal";
+import { TranslateModal } from "./TranslateModal";
+import { getLanguageByCode } from "@/lib/constants/languages";
+import { ProjectTranslation } from "@/lib/db/projects";
 
 interface PlayerViewProps {
+  projectId?: string;
   htmlCode: string;
   durationSeconds?: number;
   videoTitle?: string;
   videoPrompt?: string;
+  currentLanguage?: string;
+  translations?: Record<string, ProjectTranslation>;
+  onSelectLanguage?: (langCode: string) => void;
+  onTranslationComplete?: (translation: ProjectTranslation) => void;
   onOpenGenerator: () => void;
   audioTrack?: AudioTrack | null;
   onUpdateAudioTrack?: (track: AudioTrack | null) => void;
 }
 
 export function PlayerView({
+  projectId,
   htmlCode,
   durationSeconds = 60,
   videoTitle,
   videoPrompt,
+  currentLanguage = "ar",
+  translations = {},
+  onSelectLanguage,
+  onTranslationComplete,
   onOpenGenerator,
   audioTrack = null,
   onUpdateAudioTrack,
@@ -47,11 +62,12 @@ export function PlayerView({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [language, setLanguage] = useState<"ar" | "en">("ar");
 
-  // Audio & Prompt states
+  // Audio, Prompt & Translation states
   const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
   const [isVoiceoverModalOpen, setIsVoiceoverModalOpen] = useState(false);
+  const [isTranslateModalOpen, setIsTranslateModalOpen] = useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -165,16 +181,7 @@ export function PlayerView({
     } catch (e) {}
   }
 
-  function handleLanguageToggle() {
-    try {
-      const nextLang = language === "ar" ? "en" : "ar";
-      const win = iframeRef.current?.contentWindow as any;
-      if (win && win.__studioAPI) {
-        win.__studioAPI.setLanguage(nextLang);
-        setLanguage(nextLang);
-      }
-    } catch (e) {}
-  }
+
 
   function handleFullscreen() {
     if (!containerRef.current) return;
@@ -229,24 +236,193 @@ export function PlayerView({
         }}
       >
         <div style={{ pointerEvents: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={handleLanguageToggle}
-            className="glass"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: "var(--radius-md)",
-              color: "#eee",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <Globe size={14} color="var(--gold)" />
-            <span>{language === "ar" ? "English" : "العربية"}</span>
-          </button>
+          {/* Multilingual Selector Pill & Dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+              className="glass"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "6px 12px",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid rgba(217, 182, 109, 0.35)",
+                background: "rgba(217, 182, 109, 0.12)",
+                color: "var(--pale-gold)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+              title="تبديل لغة عرض وتشغيل الفيديو"
+            >
+              <Globe size={13} color="var(--gold)" />
+              <span style={{ fontSize: 13 }}>
+                {getLanguageByCode(currentLanguage)?.flag || (currentLanguage === "ar" ? "🇸🇦" : "🌐")}
+              </span>
+              <span>
+                {getLanguageByCode(currentLanguage)?.nativeName ||
+                  (currentLanguage === "ar" ? "العربية" : currentLanguage)}
+              </span>
+              {Object.keys(translations || {}).length > 0 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 5px",
+                    borderRadius: 8,
+                    background: "rgba(255, 255, 255, 0.12)",
+                    color: "#fff",
+                    fontWeight: 700,
+                  }}
+                >
+                  {Object.keys(translations || {}).length + 1}
+                </span>
+              )}
+              <ChevronDown size={13} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isLangDropdownOpen && (
+              <>
+                <div
+                  style={{ position: "fixed", inset: 0, zIndex: 998 }}
+                  onClick={() => setIsLangDropdownOpen(false)}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    right: 0,
+                    zIndex: 999,
+                    minWidth: 230,
+                    background: "#121417",
+                    border: "1px solid rgba(217, 182, 109, 0.35)",
+                    borderRadius: 12,
+                    padding: "6px",
+                    boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    direction: "rtl",
+                  }}
+                >
+                  <div style={{ padding: "6px 10px", fontSize: 11, color: "#888", fontWeight: 700 }}>
+                    لغات هذا الفيديو المتوفرة:
+                  </div>
+
+                  {/* Master Arabic Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onSelectLanguage) onSelectLanguage("ar");
+                      setIsLangDropdownOpen(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: currentLanguage === "ar" ? "rgba(217, 182, 109, 0.15)" : "transparent",
+                      color: currentLanguage === "ar" ? "var(--gold)" : "#ddd",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: currentLanguage === "ar" ? 700 : 500,
+                      textAlign: "right",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>🇸🇦</span>
+                      <span>العربية (النسخة الأصلية)</span>
+                    </div>
+                    {currentLanguage === "ar" && <Check size={14} color="var(--gold)" />}
+                  </button>
+
+                  {/* Other Translated Variants */}
+                  {Object.keys(translations || {}).map((k) => {
+                    const tr = translations[k];
+                    const langObj = getLanguageByCode(k);
+                    const isAct = currentLanguage === k;
+
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectLanguage) onSelectLanguage(k);
+                          setIsLangDropdownOpen(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          background: isAct ? "rgba(217, 182, 109, 0.15)" : "transparent",
+                          color: isAct ? "var(--gold)" : "#ddd",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          fontWeight: isAct ? 700 : 500,
+                          textAlign: "right",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span>{langObj?.flag || "🌐"}</span>
+                          <span>{tr.languageName || langObj?.nativeName || k}</span>
+                          {tr.audioTrack && (
+                            <span
+                              style={{
+                                fontSize: 9,
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                                background: "rgba(82, 213, 137, 0.15)",
+                                color: "var(--emerald)",
+                                border: "1px solid rgba(82, 213, 137, 0.3)",
+                              }}
+                            >
+                              صوت
+                            </span>
+                          )}
+                        </div>
+                        {isAct && <Check size={14} color="var(--gold)" />}
+                      </button>
+                    );
+                  })}
+
+                  <div style={{ height: 1, background: "rgba(255, 255, 255, 0.1)", margin: "4px 0" }} />
+
+                  {/* Action: Translate to New Language */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLangDropdownOpen(false);
+                      setIsTranslateModalOpen(true);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: "rgba(217, 182, 109, 0.12)",
+                      color: "var(--pale-gold)",
+                      border: "1px solid rgba(217, 182, 109, 0.3)",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>ترجمة إلى لغة جديدة...</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
 
           {/* Film Title Badge */}
           {videoTitle && (
@@ -547,6 +723,29 @@ export function PlayerView({
                 تغيير
               </button>
 
+              {/* Translate Video Button */}
+              <button
+                type="button"
+                onClick={() => setIsTranslateModalOpen(true)}
+                style={{
+                  background: "rgba(217, 182, 109, 0.12)",
+                  border: "1px solid rgba(217, 182, 109, 0.35)",
+                  color: "var(--pale-gold)",
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontWeight: 600,
+                }}
+                title="ترجمة وتوطين الفيديو"
+              >
+                <Globe size={11} color="var(--gold)" />
+                <span>ترجمة</span>
+              </button>
+
               {/* Remove audio button */}
               <button
                 type="button"
@@ -602,6 +801,38 @@ export function PlayerView({
                 <span>توليد تعليق صوتي للمشاهد</span>
               </button>
 
+              {/* Translate Video Button */}
+              <button
+                type="button"
+                onClick={() => setIsTranslateModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md)",
+                  background: "rgba(217, 182, 109, 0.1)",
+                  border: "1px solid rgba(217, 182, 109, 0.35)",
+                  color: "var(--pale-gold)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(217, 182, 109, 0.2)";
+                  e.currentTarget.style.borderColor = "var(--gold)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(217, 182, 109, 0.1)";
+                  e.currentTarget.style.borderColor = "rgba(217, 182, 109, 0.35)";
+                }}
+                title="ترجمة وتوطين نصوص الفيديو والتعليق الصوتي إلى لغات العالم"
+              >
+                <Globe size={13} color="var(--gold)" />
+                <span>ترجمة الفيديو</span>
+              </button>
+
               {/* Manual Audio Picker Button */}
               <button
                 type="button"
@@ -653,6 +884,23 @@ export function PlayerView({
         }}
       />
 
+      {/* Translate Video Modal */}
+      <TranslateModal
+        isOpen={isTranslateModalOpen}
+        onClose={() => setIsTranslateModalOpen(false)}
+        projectId={projectId}
+        htmlCode={htmlCode}
+        filmTitle={videoTitle}
+        durationSeconds={durationSeconds}
+        currentLanguage={currentLanguage}
+        existingTranslations={translations}
+        onTranslationComplete={(tr) => {
+          if (onTranslationComplete) {
+            onTranslationComplete(tr);
+          }
+        }}
+      />
+
       {/* Audio Picker Modal */}
       <AudioPickerModal
         isOpen={isAudioPickerOpen}
@@ -660,6 +908,7 @@ export function PlayerView({
         onSelectAudio={(track) => onUpdateAudioTrack && onUpdateAudioTrack(track)}
         currentAudioTrack={audioTrack}
       />
+
 
       {/* Prompt Details Modal */}
       {showPromptModal && (

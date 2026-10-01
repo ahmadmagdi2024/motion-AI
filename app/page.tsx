@@ -11,6 +11,7 @@ import { LibraryModal, LibraryProject } from "@/components/LibraryModal";
 import { StyleCatalogModal, MotionStyle } from "@/components/StyleCatalogModal";
 import type { AudioTrack } from "@/components/AudioPickerModal";
 import { DEFAULT_MOTION_FILM } from "@/lib/motion-engine/master-template";
+import { ProjectTranslation } from "@/lib/db/projects";
 
 export default function StudioPage() {
   const [htmlCode, setHtmlCode] = useState<string>(DEFAULT_MOTION_FILM);
@@ -20,6 +21,16 @@ export default function StudioPage() {
   const [currentModel, setCurrentModel] = useState<string>("anthropic/claude-3.7-sonnet");
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean>(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>("artek-perfumes-default");
+
+  // Multilingual translation state
+  const [currentLanguage, setCurrentLanguage] = useState<string>("ar");
+  const [translations, setTranslations] = useState<Record<string, ProjectTranslation>>({});
+  const [masterProjectData, setMasterProjectData] = useState<{
+    htmlCode: string;
+    title: string;
+    prompt: string;
+    audioTrack: AudioTrack | null;
+  } | null>(null);
 
   // Visual Style state (Cinematic vs Flat Solid)
   const [currentStyleId, setCurrentStyleId] = useState<string>("");
@@ -89,6 +100,15 @@ export default function StudioPage() {
               setCurrentProjectId(projectToLoad.id);
               if (projectToLoad.prompt) setCurrentPrompt(projectToLoad.prompt);
               if (projectToLoad.modelUsed) setCurrentModel(projectToLoad.modelUsed);
+              if (projectToLoad.translations) setTranslations(projectToLoad.translations);
+              setCurrentLanguage(projectToLoad.currentLanguage || "ar");
+              setMasterProjectData({
+                htmlCode: projectToLoad.htmlCode,
+                title: projectToLoad.title,
+                prompt: projectToLoad.prompt || "",
+                audioTrack: projectToLoad.audioTrack || null,
+              });
+              if (projectToLoad.audioTrack) setAudioTrack(projectToLoad.audioTrack);
             }
           }
         }
@@ -101,6 +121,7 @@ export default function StudioPage() {
     loadDefaultStyle();
     loadRecentProject();
   }, []);
+
 
   async function handleGenerate(data: {
     prompt: string;
@@ -161,8 +182,60 @@ export default function StudioPage() {
     setCurrentProjectId(proj.id);
     if (proj.prompt) setCurrentPrompt(proj.prompt);
     if (proj.modelUsed) setCurrentModel(proj.modelUsed);
+    const projAny = proj as any;
+    if (projAny.translations) setTranslations(projAny.translations);
+    else setTranslations({});
+    setCurrentLanguage(projAny.currentLanguage || "ar");
+    setMasterProjectData({
+      htmlCode: proj.htmlCode,
+      title: proj.title,
+      prompt: proj.prompt || "",
+      audioTrack: projAny.audioTrack || null,
+    });
+    if (projAny.audioTrack) setAudioTrack(projAny.audioTrack);
+    else setAudioTrack(null);
     if (typeof window !== "undefined") {
       localStorage.setItem("motion_last_active_project_id", proj.id);
+    }
+  }
+
+  function handleSelectLanguage(langCode: string) {
+    if (langCode === "ar" || !translations[langCode]) {
+      // Restore original master film
+      if (masterProjectData) {
+        setHtmlCode(masterProjectData.htmlCode);
+        setVideoTitle(masterProjectData.title);
+        if (masterProjectData.prompt) setCurrentPrompt(masterProjectData.prompt);
+        setAudioTrack(masterProjectData.audioTrack);
+      }
+      setCurrentLanguage("ar");
+      return;
+    }
+
+    const tr = translations[langCode];
+    if (tr) {
+      setHtmlCode(tr.htmlCode);
+      setVideoTitle(tr.title);
+      setCurrentLanguage(tr.language);
+      if (tr.audioTrack) {
+        setAudioTrack(tr.audioTrack as any);
+      } else {
+        setAudioTrack(null);
+      }
+    }
+  }
+
+  function handleTranslationComplete(tr: ProjectTranslation) {
+    setTranslations((prev) => ({
+      ...prev,
+      [tr.language]: tr,
+    }));
+    // Automatically switch active player to new translation!
+    setHtmlCode(tr.htmlCode);
+    setVideoTitle(tr.title);
+    setCurrentLanguage(tr.language);
+    if (tr.audioTrack) {
+      setAudioTrack(tr.audioTrack as any);
     }
   }
 
@@ -190,6 +263,10 @@ export default function StudioPage() {
           setVideoTitle("فيلم مصنع أرتيك للعطور (النموذج الأصلي)");
           setCurrentPrompt("فيلم سينمائي احترافي لمصنع عطور أرتيك - 6 مشاهد، 60 ثانية، هوية بصرية فاخرة");
           setCurrentProjectId("artek-perfumes-default");
+          setCurrentLanguage("ar");
+          setTranslations({});
+          setMasterProjectData(null);
+          setAudioTrack(null);
           if (typeof window !== "undefined") {
             localStorage.removeItem("motion_last_active_project_id");
           }
@@ -197,14 +274,20 @@ export default function StudioPage() {
       />
 
       <PlayerView
+        projectId={currentProjectId}
         htmlCode={htmlCode}
         durationSeconds={durationSeconds}
         videoTitle={videoTitle}
         videoPrompt={currentPrompt}
+        currentLanguage={currentLanguage}
+        translations={translations}
+        onSelectLanguage={handleSelectLanguage}
+        onTranslationComplete={handleTranslationComplete}
         onOpenGenerator={() => setIsPromptOpen(true)}
         audioTrack={audioTrack}
         onUpdateAudioTrack={setAudioTrack}
       />
+
 
       <SettingsModal
         isOpen={isSettingsOpen}
