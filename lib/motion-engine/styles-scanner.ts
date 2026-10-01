@@ -66,24 +66,25 @@ export async function scanMotionStyles(): Promise<{
         if (fnameLower.includes("flat") || content.includes("--wine") || content.includes("--clay")) {
           name = "نمط فلات (ألوان صلبة بدون تدرجات)";
           promptDirectives = `MANDATORY ARTISTIC STYLE RULE: MODERN FLAT SOLID COLORS (أسلوب فلات بألوان صلبة)
-- COLOR FREEDOM: Color shades are completely free! Choose any harmonious color palette that matches the user's brand and topic.
+- COLOR FREEDOM & 40% DARK CEILING: Color shades are completely free! Apply the 40% dark ceiling rule: at least 60% of scenes must use bright, clean, light solid backgrounds (such as crisp white, off-white, light slate #f8fafc, warm cream, or pastel tints) with high-contrast dark typography (#0f172a). Dark scenes must not exceed 40% of the video.
 - TECHNIQUE RULE: All elements and backgrounds must use PURE SOLID COLORS (Solid Fills).
 - STRICT FORBIDDEN: Absolutely NO complex linear/radial gradients, NO neon glows, NO glassy blur, NO ambient spotlights.
 - AESTHETICS: Clean geometric silhouettes, bold solid cutouts, high-contrast typography, and crisp flat vector feel.`;
         } else if (fnameLower.includes("سوشيالورا") || content.includes("سوشيالورا")) {
           name = "نمط تقني حديث (سوشيالورا)";
           promptDirectives = `MANDATORY ARTISTIC STYLE RULE: MODERN TECH SAAS (أسلوب تقني وبرمجي حديث)
-- COLOR FREEDOM: Choose modern high-tech hues suitable for the product (e.g. deep cyber dark backgrounds with vibrant tech accents).
+- COLOR FREEDOM & 40% DARK CEILING: Choose modern high-tech hues suitable for the product. Apply the 40% dark ceiling rule: at least 60% of scenes must use clean, bright tech backgrounds (clean light gray #f8fafc, pure white, or light slate) with dark high-contrast text (#0f172a), with dark scenes capped at 40% max.
 - TECHNIQUE RULE: Futuristic digital aesthetic, 2.5D isometric floating cards, cyber panels, holographic data lines, and telemetry indicators.`;
         } else if (fnameLower.includes("artek") && fnameLower.includes("animated")) {
           name = "نمط سينمائي فاخر (عطور أرتيك)";
           promptDirectives = `MANDATORY ARTISTIC STYLE RULE: CINEMATIC MOTION (أسلوب سينمائي غني)
-- COLOR FREEDOM: Choose any color shades matching the subject matter.
+- COLOR FREEDOM & 40% DARK CEILING: Choose colors matching the subject matter. Apply the 40% dark ceiling rule: at least 60% of scenes must use light/bright luxury backgrounds (radiant cream, warm ivory #fafaf9, bright pearl, or light gold tint) with dark crisp typography, and dark scenes capped at 40% max.
 - TECHNIQUE RULE: Rich lighting atmosphere, smooth depth gradients, volumetric bevels, specular reflections, and soft contact shadows.`;
         } else {
           name = rawTitle;
           promptDirectives = `MANDATORY ARTISTIC STYLE RULE: ${rawTitle}
-- Adopt the artistic style, illustration style, and motion language inspired by this reference film. Colors are free and adaptable to the user's prompt.`;
+- Adopt the artistic style, illustration style, and motion language inspired by this reference film.
+- 40% DARK CEILING RULE: At least 60% of scenes must feature bright/light backgrounds with dark text, keeping dark scenes to 40% max of the video.`;
         }
 
         styles.push({

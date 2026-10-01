@@ -28,6 +28,7 @@ function buildSceneSystemPrompt(plan: ScenePlan, sceneIndex: number): string {
 5. لا تستخدم setTimeout أو setInterval إطلاقاً — فقط معادلات رياضية مبنية على المتغير t.
 6. لا تكتب دوال عامة مثل renderAtTime أو play/stop أو resize — المحرك الخارجي يوفرها بالكامل.
 7. لا تستخدم alert أو window.onload أو أي مكتبات خارجية غير معرّفة.
+8. قانون الخلفيات والتباين الصارم: التزم بالثيمة المحددة للمشهد (light أو dark). إذا كان المشهد فاتحاً (light) يجب أن تكون خلفيته فاتحة ومشرقة ونصوصه داكنة عالية التباين (#0f172a أو #1e293b). وإذا كان المشهد داكناً (dark) اجعل نصوصه فاتحة ومضيئة.
 
 ═══ الدوال الرياضية المتاحة لك تلقائياً ═══
 - clamp(v, min, max): حصر القيمة في نطاق معين
@@ -81,6 +82,7 @@ function buildSceneUserPrompt(
       duration: scene.durationSeconds,
     },
     visualConcept: scene.visualConcept,
+    theme: scene.theme || "light",
     background: scene.background,
     colorPalette: scene.colorPalette,
     elements: scene.elements,
@@ -106,6 +108,10 @@ function buildSceneUserPrompt(
 
   context.instructions = {
     format: "استخدم الوسوم: <scene_css>, <scene_html>, <scene_js>. لا تكتب بصيغة JSON.",
+    themeDirective:
+      scene.theme === "dark"
+        ? "هذا المشهد داكن (بما لا يتجاوز 40% من الفيلم): استخدم خلفية داكنة مع نصوص فاتحة ومضيئة (#ffffff أو #f5e3b8)."
+        : "هذا المشهد فاتح ومشرق (قاعدة الـ 60%+ مشاهد فاتحة): استخدم خلفية فاتحة (#f8fafc أو #ffffff أو تدرج ناصع) مع نصوص داكنة عالية التباين والمقروئية (#0f172a أو #1e293b).",
     inception: "قانون بداية الحركة: كل عنصر يبدأ من حالة بداية مقصودة (مختفٍ أو خارج الشاشة أو مصغّر).",
     continuity: "قانون الانتقال: لا تحذف العناصر فجأة بل خروج انسيابي.",
     timing: `مدة المشهد ${scene.durationSeconds} ثانية، وزّع الأحداث تدريجياً عبر الزمن t.`,

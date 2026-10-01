@@ -517,6 +517,26 @@ export function PromptModal({
                 />
               </div>
 
+              {/* Color Diversity & 40% Dark Ceiling Rule Badge */}
+              <div
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md)",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  border: "1px solid rgba(96, 165, 250, 0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 11,
+                  color: "#93c5fd",
+                }}
+              >
+                <Sparkles size={14} color="#60a5fa" style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>قانون التنوع اللوني مفعل:</strong> 60%+ على الأقل من المشاهد بخلفيات فاتحة ومشرقة، والخلفيات الداكنة بحد أقصى 40% لتجنب القتامة.
+                </span>
+              </div>
+
               {/* Progress message while loading */}
               {loading && (
                 <div

@@ -19,8 +19,10 @@ export function assembleFilm(
   // Build scene HTML elements
   const scenesHTML = scenes.map((s, i) => {
     const planItem = plan.scenes[i];
-    return `    <!-- Scene ${i}: ${s.title} [${planItem.startTime}s - ${planItem.endTime}s] -->
-    <div id="scene-${i}" class="scene" data-start="${planItem.startTime}" data-end="${planItem.endTime}">
+    const themeClass = planItem?.theme === "dark" ? "scene-dark" : "scene-light";
+    const bgStyle = planItem?.colorPalette?.bg ? `style="background: ${planItem.colorPalette.bg};"` : "";
+    return `    <!-- Scene ${i}: ${s.title} [${planItem.startTime}s - ${planItem.endTime}s] (${planItem?.theme || 'light'}) -->
+    <div id="scene-${i}" class="scene ${themeClass}" data-theme="${planItem?.theme || 'light'}" data-start="${planItem.startTime}" data-end="${planItem.endTime}" ${bgStyle}>
       ${s.html}
     </div>`;
   }).join("\n\n");
@@ -44,6 +46,8 @@ export function assembleFilm(
     `{ idx: ${i}, start: ${s.startTime}, end: ${s.endTime}, render: renderScene_${i} }`
   ).join(",\n        ");
 
+  const stageDefaultBg = plan.scenes.find(s => s.theme === "light")?.colorPalette?.bg || '#f8fafc';
+
   const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -54,15 +58,15 @@ export function assembleFilm(
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Montserrat:wght@300;400;500;600;700&display=swap');
 
     :root {
-      --primary: ${plan.scenes[0]?.colorPalette?.primary || '#d9b66d'};
-      --accent: ${plan.scenes[0]?.colorPalette?.accent || '#f5e3b8'};
-      --bg: ${plan.scenes[0]?.colorPalette?.bg || '#050606'};
+      --primary: ${plan.scenes[0]?.colorPalette?.primary || '#0f172a'};
+      --accent: ${plan.scenes[0]?.colorPalette?.accent || '#d97706'};
+      --bg: ${stageDefaultBg};
     }
 
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{
       width:100%;height:100%;overflow:hidden;
-      background:var(--bg);color:white;
+      background:#0d0f12;
       font-family:Cairo,sans-serif;position:relative;
     }
 
@@ -72,7 +76,7 @@ export function assembleFilm(
       left:50%;top:50%;
       overflow:hidden;
       transform-origin:center center;
-      background:var(--bg);
+      background:${stageDefaultBg};
       isolation:isolate;
     }
 
@@ -85,12 +89,15 @@ export function assembleFilm(
       opacity:0;visibility:hidden;
     }
     .scene.visible{visibility:visible}
+    .scene.scene-light{background:#f8fafc;color:#0f172a;}
+    .scene.scene-dark{background:#0b0f14;color:#ffffff;}
 
     .vignette{
       position:absolute;inset:0;z-index:30;pointer-events:none;
       background:
-        linear-gradient(180deg,rgba(0,0,0,.22),transparent 25%,transparent 65%,rgba(0,0,0,.65)),
-        radial-gradient(circle,transparent 38%,rgba(0,0,0,.5) 120%);
+        linear-gradient(180deg,rgba(0,0,0,.06),transparent 25%,transparent 75%,rgba(0,0,0,.15)),
+        radial-gradient(circle,transparent 55%,rgba(0,0,0,.18) 120%);
+      opacity:0.4;
     }
 
     .grain{

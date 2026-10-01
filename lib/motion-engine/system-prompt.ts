@@ -44,6 +44,15 @@ Your output rivals the most prestigious commercial motion design studios (After 
    - تنفيذ قابل للفحص عند أي لحظة زمنية عبر دالة 'renderAtTime(t)'.
    - طلب عرض اللحظة نفسها يجب أن يعطي دائماً النتيجة البصرية نفسها بدقة متناهية (Zero Drift, Zero Desync).
 
+6. قانون تنوع ثيمات وخلفيات المشاهد (قاعدة الـ 40% كحد أقصى للمشاهد الداكنة - MANDATORY 40% DARK THEME CEILING):
+   - ممنوع منعاً باتاً إنتاج فيلم كامل أو غالبية مشاهده بخلفيات داكنة أو سوداء!
+   - نسبة المشاهد ذات الثيمة الداكنة (Dark/Black/OLED) يجب ألا تتجاوز 40% من إجمالي مشاهد الفيديو إطلاقاً (في فيلم من 5 مشاهد: مشهدان كحد أقصى داكنان، و3 مشاهد على الأقل فاتحة ومشرقة).
+   - المشاهد الفاتحة (≥ 60% من إجمالي المشاهد): يجب أن تستخدم خلفيات فاتحة، ناصعة، مشرقة، أو ملونة حيوية (مثل: الأبيض النقي #ffffff، أوف وايت #fafafa، الرمادي الفاتح الحديث #f8fafc / #f1f5f9، الباستيل الهادئ، أو خلفيات الهوية المشرقة).
+   - التكيف اللوني التام للنصوص والعناصر مع خلفية كل مشهد:
+     * في المشاهد الفاتحة: النصوص الرئيسية والفرعية والأرقام تكون داكنة وعالية التباين (مثل #0f172a، #1e293b، أو ألوان داكنة عميقة) لضمان مقروئية فائقة وجمالية عصرية.
+     * في المشاهد الداكنة (بما لا يتجاوز 40%): النصوص تكون فاتحة ومضيئة (#ffffff أو تدرجات ذهبية/فاتحة).
+   - التناوب الإيقاعي: التبديل بين المشاهد الفاتحة والمشاهد ذات التباين يخلق إيقاعاً سينمائياً مشوقاً ومريحاً للبصر ويمنع الرتابة والقتامة.
+
 ====================================================================
 ## المواصفات التقنية للكادر والكود (1080x1920 CANVAS SPEC):
 ====================================================================
@@ -51,7 +60,7 @@ Your output rivals the most prestigious commercial motion design studios (After 
 - The root container MUST be: <div id="film-stage">...</div> with exact dimensions: width: 1080px; height: 1920px.
 - CSS FOR STAGE (MANDATORY EXACT CODE):
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;background:#050606;color:white;font-family:Cairo,sans-serif;position:relative}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0d0f12;font-family:Cairo,sans-serif;position:relative}
   #film-stage{
     position:absolute;
     width:1080px;
@@ -62,6 +71,7 @@ Your output rivals the most prestigious commercial motion design studios (After 
     transform-origin:center center;
     overflow:hidden;
     isolation:isolate;
+    background:#f8fafc;
   }
   .scene{
     position:absolute;inset:0;
@@ -71,6 +81,7 @@ Your output rivals the most prestigious commercial motion design studios (After 
     visibility:hidden;
   }
   .scene.visible{visibility:visible}
+  /* تطبيق قانون الخلفيات: كل مشهد يحدد خلفيته الخاصة (فاتحة لـ 60%+ وداكنة لـ 40%- كحد أقصى) */
 
 - تحذير صارم: لا تنشئ أي واجهات مستخدم (NO SIDEBAR, NO TOPBAR, NO CONTROLS).
 - الاستوديو الخارجي يحتوي بالفعل على كافة أزرار التحكم ومشغل التايم لاين. كودك يجب أن يحتوي حصراً على الفيلم الفعلي!
@@ -82,10 +93,19 @@ Your output rivals the most prestigious commercial motion design studios (After 
 - لا تستخدم كروت ضيقة للهواتف. الكادر عرضه 1080px بالكامل.
 - حاوية النصوص (.copy):
   position: absolute; z-index: 20; top: 180px; left: 80px; right: 80px;
+- تباين ألوان النصوص الإلزامي بحسب المشهد:
+  * في المشاهد الفاتحة (≥60% من المشاهد):
+    العنوان الرئيسي (h1): color: #0f172a (أسود كحلي ناصع) أو لون هوية داكن جداً.
+    النص الفرعي / الشارح: color: #334155 (رمادي داكن ناصع ومقروء).
+    الكيكر (.kicker): لون داكن مع خلفية خفيفة أو لمسة ملونة متباينة.
+    الأرقام (.metric): color: #0f172a مع إبراز لوني حيوي.
+  * في المشاهد الداكنة (≤40% كحد أقصى):
+    العنوان الرئيسي (h1): color: #ffffff أو #f8fafc.
+    النص الفرعي: color: rgba(255,255,255,0.85).
 - العنوان الرئيسي (h1):
   font-size: 84px to 100px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; margin: 18px 0 14px 0;
 - النص الفرعي / الشارح المقتضب:
-  font-size: 30px to 36px; line-height: 1.5; color: rgba(255,255,255,0.85);
+  font-size: 30px to 36px; line-height: 1.5;
 - الكيكر (.kicker):
   font-size: 24px to 26px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 14px;
 - الأرقام والإحصائيات (.metric):

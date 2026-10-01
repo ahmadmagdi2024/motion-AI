@@ -10,6 +10,7 @@ import { buildMotionCatalog } from "./motion-catalog";
 export interface ScenePlanItem {
   sceneIndex: number;
   title: string;
+  theme?: "light" | "dark";
   startTime: number;
   endTime: number;
   durationSeconds: number;
@@ -43,6 +44,11 @@ const PLAN_SYSTEM_PROMPT = `أنت مخرج موشن جرافيك محترف. م
 4. حدد العناصر البصرية بدقة (أيقونات، أشكال هندسية، رسوم SVG).
 5. اختر حركات من الكتالوج المتاح (انظر أسفل الرسالة).
 6. صمم انتقالاً سلساً بين كل مشهد والذي يليه عبر عنصر رابط.
+7. قانون إلزامي صارم لتنوع الخلفيات (قاعدة الـ 40% كحد أقصى للمشاهد الداكنة):
+   - نسبة المشاهد ذات الثيمات والخلفيات الداكنة (Dark / Black) يجب ألا تتجاوز 40% من إجمالي مشاهد الفيديو نهائياً!
+   - 60% على الأقل من مشاهد الفيديو يجب أن تكون بخلفيات فاتحة ونقية ومشرقة (مثل الأبيض النقي #ffffff، الرمادي الفاتح الحديث #f8fafc، درجات الكريمي الفاتح، أو ألوان الهوية الفاتحة).
+   - لكل مشهد حدد الحقل "theme": "light" أو "theme": "dark". وتأكد أن عدد المشاهد ذات "dark" لا يتجاوز 40% بأي حال.
+   - في المشاهد الفاتحة: لون النصوص الأساسية (headline, kicker, metrics) يجب أن يكون داكناً متبايناً جداً (#0f172a أو #1e293b).
 
 ${buildMotionCatalog()}
 
@@ -55,12 +61,13 @@ ${buildMotionCatalog()}
     {
       "sceneIndex": 0,
       "title": "عنوان المشهد",
+      "theme": "light",
       "startTime": 0,
       "endTime": 5,
       "durationSeconds": 5,
       "visualConcept": "وصف الفكرة البصرية المركزية للمشهد",
-      "background": "وصف الخلفية: لون/تدرج/نمط",
-      "colorPalette": { "primary": "#hex", "accent": "#hex", "bg": "#hex" },
+      "background": "وصف الخلفية: لون فاتح/تدرج ناصع/نمط عصري",
+      "colorPalette": { "primary": "#0f172a", "accent": "#d97706", "bg": "#f8fafc" },
       "elements": ["وصف كل عنصر بصري وموقعه ودوره"],
       "motionPrimitives": ["fadeScale", "elasticSpring"],
       "textContent": {
@@ -111,6 +118,59 @@ function extractJsonPlan(rawContent: string): ScenePlan {
   throw new Error("لم يتم العثور على كائن JSON صالح في استجابة النموذج لتخطيط المشاهد");
 }
 
+function isDarkColor(hex: string): boolean {
+  if (!hex || typeof hex !== "string") return false;
+  let c = hex.replace("#", "").trim();
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  if (c.length !== 6) return false;
+  const r = parseInt(c.slice(0, 2), 16) || 0;
+  const g = parseInt(c.slice(2, 4), 16) || 0;
+  const b = parseInt(c.slice(4, 6), 16) || 0;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum < 0.45;
+}
+
+function enforceDarkSceneCeiling(scenes: ScenePlanItem[]): void {
+  const maxDarkAllowed = Math.floor(scenes.length * 0.4); // max 40% dark
+  let darkCount = 0;
+
+  for (let i = 0; i < scenes.length; i++) {
+    const s = scenes[i];
+    const isDark =
+      s.theme === "dark" ||
+      isDarkColor(s.colorPalette?.bg) ||
+      (s.background &&
+        (s.background.includes("داكن") ||
+          s.background.includes("أسود") ||
+          s.background.includes("black") ||
+          s.background.includes("dark")));
+
+    if (isDark) {
+      if (darkCount < maxDarkAllowed) {
+        darkCount++;
+        s.theme = "dark";
+      } else {
+        // Exceeds 40% ceiling! Programmatically normalize to light theme
+        s.theme = "light";
+        s.background = "خلفية ناصعة فاتحة عصرية (#f8fafc) مع عناصر ملونة عالية التباين";
+        if (!s.colorPalette) {
+          s.colorPalette = { primary: "#0f172a", accent: "#d97706", bg: "#f8fafc" };
+        } else {
+          s.colorPalette.bg = "#f8fafc";
+          if (!isDarkColor(s.colorPalette.primary)) {
+            s.colorPalette.primary = "#0f172a";
+          }
+        }
+      }
+    } else {
+      s.theme = "light";
+      if (!s.colorPalette?.bg || isDarkColor(s.colorPalette.bg)) {
+        if (s.colorPalette) s.colorPalette.bg = "#f8fafc";
+      }
+    }
+  }
+}
+
 export async function planScenes(
   apiKey: string,
   model: string,
@@ -123,7 +183,7 @@ export async function planScenes(
     durationSeconds,
     aspectRatio: "1080x1920 portrait (9:16)",
     brandStyle: brandStyle || "Modern cinematic motion graphics",
-    instruction: "أنشئ خطة مشاهد مفصلة لهذا الفيديو. أجب بـ JSON فقط."
+    instruction: "أنشئ خطة مشاهد مفصلة لهذا الفيديو مع تطبيق قانون الـ 40% كحد أقصى للمشاهد الداكنة (60%+ مشاهد فاتحة). أجب بـ JSON فقط."
   });
 
   console.log(`[ScenePlanner] Planning scenes for ${durationSeconds}s video with model: ${model}`);
@@ -160,7 +220,14 @@ export async function planScenes(
 
     plan.totalDuration = durationSeconds;
 
-    console.log(`[ScenePlanner] Plan created: ${plan.scenes.length} scenes, title: "${plan.filmTitle}"`);
+    // Enforce 40% max dark scene ceiling
+    enforceDarkSceneCeiling(plan.scenes);
+
+    console.log(
+      `[ScenePlanner] Plan created: ${plan.scenes.length} scenes (Dark scenes: ${
+        plan.scenes.filter((s) => s.theme === "dark").length
+      }/${plan.scenes.length}), title: "${plan.filmTitle}"`
+    );
     return plan;
   } catch (parseErr: any) {
     console.error("[ScenePlanner] Failed to parse JSON plan:", parseErr.message, "\nRaw snippet:", rawContent.slice(0, 300));
