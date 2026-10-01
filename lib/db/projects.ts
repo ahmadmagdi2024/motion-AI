@@ -19,13 +19,7 @@ export interface ProjectTranslation {
     narration: string;
     audioUrl?: string;
   }>;
-  audioTrack?: {
-    id: string;
-    name: string;
-    url: string;
-    duration: number;
-    type?: string;
-  } | null;
+  audioTrack?: any;
   renderedVideoUrl?: string;
   translatedAt: string;
 }
@@ -111,13 +105,38 @@ export async function saveProject(data: {
     const existingIndex = projects.findIndex((p) => p.id === data.id);
     if (existingIndex >= 0) {
       const existing = projects[existingIndex];
+      const cleanData: any = {};
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined) cleanData[k] = v;
+      }
+
+      // Merge translations preserving existing audioTrack
+      const mergedTranslations: Record<string, ProjectTranslation> = {
+        ...(existing.translations || {}),
+      };
+      if (data.translations) {
+        for (const [lang, tr] of Object.entries(data.translations)) {
+          const exTr = mergedTranslations[lang];
+          mergedTranslations[lang] = {
+            ...(exTr || {}),
+            ...tr,
+            audioTrack:
+              tr.audioTrack !== undefined && tr.audioTrack !== null
+                ? tr.audioTrack
+                : exTr?.audioTrack || null,
+          };
+        }
+      }
+
       project = {
         ...existing,
-        ...data,
-        translations: {
-          ...(existing.translations || {}),
-          ...(data.translations || {}),
-        },
+        ...cleanData,
+        translations: mergedTranslations,
+        audioTrack:
+          cleanData.audioTrack !== undefined && cleanData.audioTrack !== null
+            ? cleanData.audioTrack
+            : existing.audioTrack || null,
+        currentLanguage: cleanData.currentLanguage || existing.currentLanguage || 'ar',
         updatedAt: now,
       };
       projects[existingIndex] = project;
@@ -130,7 +149,7 @@ export async function saveProject(data: {
         prompt: data.prompt,
         htmlCode: data.htmlCode,
         renderedVideoUrl: data.renderedVideoUrl,
-        audioTrack: data.audioTrack,
+        audioTrack: data.audioTrack || null,
         voiceoverScript: data.voiceoverScript,
         currentLanguage: data.currentLanguage || 'ar',
         translations: data.translations || {},
@@ -148,7 +167,7 @@ export async function saveProject(data: {
       prompt: data.prompt,
       htmlCode: data.htmlCode,
       renderedVideoUrl: data.renderedVideoUrl,
-      audioTrack: data.audioTrack,
+      audioTrack: data.audioTrack || null,
       voiceoverScript: data.voiceoverScript,
       currentLanguage: data.currentLanguage || 'ar',
       translations: data.translations || {},
@@ -173,9 +192,154 @@ export async function saveProjectTranslation(
   if (!p.translations) {
     p.translations = {};
   }
-  p.translations[translation.language] = translation;
+  const existingTr = p.translations[translation.language];
+  p.translations[translation.language] = {
+    ...(existingTr || {}),
+    ...translation,
+    audioTrack:
+      translation.audioTrack !== undefined && translation.audioTrack !== null
+        ? translation.audioTrack
+        : existingTr?.audioTrack || null,
+  };
+  p.currentLanguage = translation.language;
   p.updatedAt = new Date().toISOString();
 
+  await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
+  return p;
+}
+
+export async function updateProjectAudio(
+  projectId: string,
+  audioTrack: any,
+  language?: string
+): Promise<MotionProject | null> {
+  const projects = await ensureDb();
+  const p = projects.find((item) => item.id === projectId);
+  if (!p) return null;
+
+  const targetLang = language || p.currentLanguage || 'ar';
+  if (targetLang !== 'ar') {
+    if (!p.translations) p.translations = {};
+    if (!p.translations[targetLang]) {
+      p.translations[targetLang] = {
+        language: targetLang,
+        languageName: targetLang,
+        title: p.title,
+        htmlCode: p.htmlCode,
+        audioTrack,
+        translatedAt: new Date().toISOString(),
+      };
+    } else {
+      p.translations[targetLang].audioTrack = audioTrack;
+    }
+    p.currentLanguage = targetLang;
+  } else {
+    p.audioTrack = audioTrack;
+  }
+
+  p.updatedAt = new Date().toISOString();
+  await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
+  return p;
+}
+
+export async function updateProjectFields(
+  projectId: string,
+  fields: Partial<MotionProject>
+): Promise<MotionProject | null> {
+  const projects = await ensureDb();
+  const p = projects.find((item) => item.id === projectId);
+  if (!p) return null;
+
+  const { translations, ...otherFields } = fields;
+
+  for (const [k, v] of Object.entries(otherFields)) {
+    if (v !== undefined) {
+      (p as any)[k] = v;
+    }
+  }
+
+  if (translations) {
+    if (!p.translations) p.translations = {};
+    for (const [lang, tr] of Object.entries(translations)) {
+      const existingTr = p.translations[lang];
+      p.translations[lang] = {
+        ...(existingTr || {}),
+        ...tr,
+        audioTrack:
+          tr.audioTrack !== undefined && tr.audioTrack !== null
+            ? tr.audioTrack
+            : existingTr?.audioTrack || null,
+      };
+    }
+  }
+
+  p.updatedAt = new Date().toISOString();
+  await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
+  return p;
+}
+
+export async function updateProjectUnified(
+  projectId: string,
+  payload: {
+    audioTrack?: any;
+    currentLanguage?: string;
+    translations?: Record<string, ProjectTranslation>;
+    [key: string]: any;
+  }
+): Promise<MotionProject | null> {
+  const projects = await ensureDb();
+  const p = projects.find((item) => item.id === projectId);
+  if (!p) return null;
+
+  const { audioTrack, currentLanguage, translations, ...otherFields } = payload;
+
+  if (currentLanguage !== undefined) {
+    p.currentLanguage = currentLanguage;
+  }
+
+  if (translations !== undefined) {
+    if (!p.translations) p.translations = {};
+    for (const [lang, tr] of Object.entries(translations)) {
+      const existingTr = p.translations[lang];
+      p.translations[lang] = {
+        ...(existingTr || {}),
+        ...tr,
+        audioTrack:
+          tr.audioTrack !== undefined && tr.audioTrack !== null
+            ? tr.audioTrack
+            : existingTr?.audioTrack || null,
+      };
+    }
+  }
+
+  if (audioTrack !== undefined) {
+    const targetLang = currentLanguage || p.currentLanguage || 'ar';
+    if (targetLang !== 'ar') {
+      if (!p.translations) p.translations = {};
+      if (!p.translations[targetLang]) {
+        p.translations[targetLang] = {
+          language: targetLang,
+          languageName: targetLang,
+          title: p.title,
+          htmlCode: p.htmlCode,
+          audioTrack,
+          translatedAt: new Date().toISOString(),
+        };
+      } else {
+        p.translations[targetLang].audioTrack = audioTrack;
+      }
+    } else {
+      p.audioTrack = audioTrack;
+    }
+  }
+
+  for (const [k, v] of Object.entries(otherFields)) {
+    if (v !== undefined) {
+      (p as any)[k] = v;
+    }
+  }
+
+  p.updatedAt = new Date().toISOString();
   await fs.writeFile(DB_PATH, JSON.stringify(projects, null, 2), 'utf-8');
   return p;
 }

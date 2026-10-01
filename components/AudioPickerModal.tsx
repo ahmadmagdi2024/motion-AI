@@ -19,6 +19,8 @@ export interface AudioTrack {
   name: string;
   duration?: number;
   size?: number;
+  id?: string;
+  type?: string;
 }
 
 interface AudioPickerModalProps {

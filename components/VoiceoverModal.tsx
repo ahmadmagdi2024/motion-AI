@@ -34,11 +34,8 @@ interface VoiceoverModalProps {
   htmlCode: string;
   durationSeconds: number;
   videoTitle: string;
-  onApplyVoiceover: (audioTrack: {
-    url: string;
-    duration: number;
-    name: string;
-  }) => void;
+  currentLanguage?: string;
+  onApplyVoiceover: (audioTrack: any) => void;
 }
 
 export const VoiceoverModal: React.FC<VoiceoverModalProps> = ({
@@ -47,6 +44,7 @@ export const VoiceoverModal: React.FC<VoiceoverModalProps> = ({
   htmlCode,
   durationSeconds,
   videoTitle,
+  currentLanguage = "ar",
   onApplyVoiceover,
 }) => {
   const [scenes, setScenes] = useState<SceneItem[]>([]);
@@ -160,9 +158,12 @@ export const VoiceoverModal: React.FC<VoiceoverModalProps> = ({
 
         // Auto apply to player
         onApplyVoiceover({
+          id: `ai_voiceover_${Date.now()}`,
           url: data.masterTrack.url,
           duration: data.masterTrack.duration || durationSeconds,
-          name: `تعليق صوتي ذكي (${videoTitle || "الفيلم"})`,
+          name: `تعليق صوتي (${currentLanguage === "ar" || !currentLanguage ? "العربية" : currentLanguage})`,
+          type: "ai_voiceover",
+          language: currentLanguage || "ar",
         });
       }
     } catch (err: any) {

@@ -78,7 +78,7 @@ export default function StudioPage() {
 
     async function loadRecentProject() {
       try {
-        const res = await fetch("/api/projects");
+        const res = await fetch("/api/projects", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           const projectsList: any[] = data.projects || (Array.isArray(data) ? data : []);
@@ -100,15 +100,91 @@ export default function StudioPage() {
               setCurrentProjectId(projectToLoad.id);
               if (projectToLoad.prompt) setCurrentPrompt(projectToLoad.prompt);
               if (projectToLoad.modelUsed) setCurrentModel(projectToLoad.modelUsed);
-              if (projectToLoad.translations) setTranslations(projectToLoad.translations);
-              setCurrentLanguage(projectToLoad.currentLanguage || "ar");
+
+              // Normalize translations (support object or array)
+              const loadedTranslations: Record<string, ProjectTranslation> = {};
+              if (projectToLoad.translations) {
+                if (Array.isArray(projectToLoad.translations)) {
+                  projectToLoad.translations.forEach((tr: any) => {
+                    if (tr && tr.language) loadedTranslations[tr.language] = tr;
+                  });
+                } else if (typeof projectToLoad.translations === "object") {
+                  Object.assign(loadedTranslations, projectToLoad.translations);
+                }
+              }
+              setTranslations(loadedTranslations);
+
               setMasterProjectData({
                 htmlCode: projectToLoad.htmlCode,
                 title: projectToLoad.title,
                 prompt: projectToLoad.prompt || "",
                 audioTrack: projectToLoad.audioTrack || null,
               });
-              if (projectToLoad.audioTrack) setAudioTrack(projectToLoad.audioTrack);
+
+              // Always remember last active project
+              if (typeof window !== "undefined") {
+                localStorage.setItem("motion_last_active_project_id", projectToLoad.id);
+              }
+
+              // Check if an active language was saved
+              const savedLang =
+                typeof window !== "undefined"
+                  ? localStorage.getItem(`motion_active_lang_${projectToLoad.id}`) || projectToLoad.currentLanguage
+                  : projectToLoad.currentLanguage;
+
+              const activeLang =
+                savedLang && savedLang !== "ar" && loadedTranslations[savedLang]
+                  ? savedLang
+                  : (projectToLoad.currentLanguage && projectToLoad.currentLanguage !== "ar" && loadedTranslations[projectToLoad.currentLanguage]
+                      ? projectToLoad.currentLanguage
+                      : "ar");
+
+              setCurrentLanguage(activeLang);
+
+              if (activeLang !== "ar" && loadedTranslations[activeLang]) {
+                const tr = loadedTranslations[activeLang];
+                setHtmlCode(tr.htmlCode);
+                setVideoTitle(tr.title);
+                let loadedAudio = tr.audioTrack || null;
+                if (!loadedAudio && typeof window !== "undefined") {
+                  try {
+                    const cached = localStorage.getItem(`motion_audio_${projectToLoad.id}_${activeLang}`);
+                    if (cached) {
+                      loadedAudio = JSON.parse(cached);
+                      tr.audioTrack = loadedAudio;
+                      // Sync back to database
+                      fetch(`/api/projects/${projectToLoad.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          currentLanguage: activeLang,
+                          audioTrack: loadedAudio,
+                        }),
+                      }).catch(() => {});
+                    }
+                  } catch (_) {}
+                }
+                setAudioTrack(loadedAudio);
+              } else {
+                let masterAudio = projectToLoad.audioTrack || null;
+                if (!masterAudio && typeof window !== "undefined") {
+                  try {
+                    const cached = localStorage.getItem(`motion_audio_${projectToLoad.id}_ar`);
+                    if (cached) {
+                      masterAudio = JSON.parse(cached);
+                      fetch(`/api/projects/${projectToLoad.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          currentLanguage: "ar",
+                          audioTrack: masterAudio,
+                        }),
+                      }).catch(() => {});
+                    }
+                  } catch (_) {}
+                }
+                setAudioTrack(masterAudio);
+              }
             }
           }
         }
@@ -182,31 +258,119 @@ export default function StudioPage() {
     setCurrentProjectId(proj.id);
     if (proj.prompt) setCurrentPrompt(proj.prompt);
     if (proj.modelUsed) setCurrentModel(proj.modelUsed);
+
     const projAny = proj as any;
-    if (projAny.translations) setTranslations(projAny.translations);
-    else setTranslations({});
-    setCurrentLanguage(projAny.currentLanguage || "ar");
+    const loadedTranslations: Record<string, ProjectTranslation> = {};
+    if (projAny.translations) {
+      if (Array.isArray(projAny.translations)) {
+        projAny.translations.forEach((tr: any) => {
+          if (tr && tr.language) loadedTranslations[tr.language] = tr;
+        });
+      } else if (typeof projAny.translations === "object") {
+        Object.assign(loadedTranslations, projAny.translations);
+      }
+    }
+    setTranslations(loadedTranslations);
+
     setMasterProjectData({
       htmlCode: proj.htmlCode,
       title: proj.title,
       prompt: proj.prompt || "",
       audioTrack: projAny.audioTrack || null,
     });
-    if (projAny.audioTrack) setAudioTrack(projAny.audioTrack);
-    else setAudioTrack(null);
+
+    const savedLang =
+      typeof window !== "undefined"
+        ? localStorage.getItem(`motion_active_lang_${proj.id}`) || projAny.currentLanguage
+        : projAny.currentLanguage;
+
+    const activeLang =
+      savedLang && savedLang !== "ar" && loadedTranslations[savedLang]
+        ? savedLang
+        : (projAny.currentLanguage && projAny.currentLanguage !== "ar" && loadedTranslations[projAny.currentLanguage]
+            ? projAny.currentLanguage
+            : "ar");
+
+    setCurrentLanguage(activeLang);
+
+    if (activeLang !== "ar" && loadedTranslations[activeLang]) {
+      const tr = loadedTranslations[activeLang];
+      setHtmlCode(tr.htmlCode);
+      setVideoTitle(tr.title);
+      let loadedAudio = tr.audioTrack || null;
+      if (!loadedAudio && typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`motion_audio_${proj.id}_${activeLang}`);
+          if (cached) {
+            loadedAudio = JSON.parse(cached);
+            tr.audioTrack = loadedAudio;
+            fetch(`/api/projects/${proj.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                currentLanguage: activeLang,
+                audioTrack: loadedAudio,
+              }),
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      }
+      setAudioTrack(loadedAudio);
+    } else {
+      let masterAudio = projAny.audioTrack || null;
+      if (!masterAudio && typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`motion_audio_${proj.id}_ar`);
+          if (cached) {
+            masterAudio = JSON.parse(cached);
+            fetch(`/api/projects/${proj.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                currentLanguage: "ar",
+                audioTrack: masterAudio,
+              }),
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      }
+      setAudioTrack(masterAudio);
+    }
+
     if (typeof window !== "undefined") {
       localStorage.setItem("motion_last_active_project_id", proj.id);
+      localStorage.setItem(`motion_active_lang_${proj.id}`, activeLang);
     }
   }
 
   function handleSelectLanguage(langCode: string) {
+    if (typeof window !== "undefined" && currentProjectId) {
+      localStorage.setItem(`motion_active_lang_${currentProjectId}`, langCode);
+      localStorage.setItem("motion_last_active_project_id", currentProjectId);
+    }
+
+    if (currentProjectId) {
+      fetch(`/api/projects/${currentProjectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentLanguage: langCode }),
+      }).catch((e) => console.error("Failed to persist language:", e));
+    }
+
     if (langCode === "ar" || !translations[langCode]) {
       // Restore original master film
       if (masterProjectData) {
         setHtmlCode(masterProjectData.htmlCode);
         setVideoTitle(masterProjectData.title);
         if (masterProjectData.prompt) setCurrentPrompt(masterProjectData.prompt);
-        setAudioTrack(masterProjectData.audioTrack);
+        let masterAudio = masterProjectData.audioTrack || null;
+        if (!masterAudio && typeof window !== "undefined" && currentProjectId) {
+          try {
+            const cached = localStorage.getItem(`motion_audio_${currentProjectId}_ar`);
+            if (cached) masterAudio = JSON.parse(cached);
+          } catch (_) {}
+        }
+        setAudioTrack(masterAudio);
       }
       setCurrentLanguage("ar");
       return;
@@ -217,25 +381,115 @@ export default function StudioPage() {
       setHtmlCode(tr.htmlCode);
       setVideoTitle(tr.title);
       setCurrentLanguage(tr.language);
-      if (tr.audioTrack) {
-        setAudioTrack(tr.audioTrack as any);
-      } else {
-        setAudioTrack(null);
+      let loadedAudio = tr.audioTrack || null;
+      if (!loadedAudio && typeof window !== "undefined" && currentProjectId) {
+        try {
+          const cached = localStorage.getItem(`motion_audio_${currentProjectId}_${langCode}`);
+          if (cached) {
+            loadedAudio = JSON.parse(cached);
+            tr.audioTrack = loadedAudio;
+          }
+        } catch (_) {}
       }
+      setAudioTrack(loadedAudio as any);
     }
   }
 
   function handleTranslationComplete(tr: ProjectTranslation) {
-    setTranslations((prev) => ({
-      ...prev,
+    const updatedTranslations = {
+      ...translations,
       [tr.language]: tr,
-    }));
+    };
+    setTranslations(updatedTranslations);
+
     // Automatically switch active player to new translation!
     setHtmlCode(tr.htmlCode);
     setVideoTitle(tr.title);
     setCurrentLanguage(tr.language);
-    if (tr.audioTrack) {
-      setAudioTrack(tr.audioTrack as any);
+    setAudioTrack((tr.audioTrack as any) || null);
+
+    if (typeof window !== "undefined" && currentProjectId) {
+      localStorage.setItem("motion_last_active_project_id", currentProjectId);
+      localStorage.setItem(`motion_active_lang_${currentProjectId}`, tr.language);
+      if (tr.audioTrack) {
+        try {
+          localStorage.setItem(`motion_audio_${currentProjectId}_${tr.language}`, JSON.stringify(tr.audioTrack));
+        } catch (_) {}
+      }
+    }
+
+    // Persist to backend database
+    if (currentProjectId) {
+      fetch(`/api/projects/${currentProjectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentLanguage: tr.language,
+          translations: updatedTranslations,
+          audioTrack: tr.audioTrack,
+        }),
+      }).catch((e) => console.error("Failed to persist translation:", e));
+    }
+  }
+
+  function handleUpdateAudioTrack(track: AudioTrack | null) {
+    setAudioTrack(track);
+
+    if (typeof window !== "undefined" && currentProjectId) {
+      localStorage.setItem("motion_last_active_project_id", currentProjectId);
+      try {
+        if (track) {
+          localStorage.setItem(`motion_audio_${currentProjectId}_${currentLanguage}`, JSON.stringify(track));
+        } else {
+          localStorage.removeItem(`motion_audio_${currentProjectId}_${currentLanguage}`);
+        }
+      } catch (_) {}
+    }
+
+    if (currentLanguage !== "ar") {
+      const currentTr = translations[currentLanguage] || {
+        language: currentLanguage,
+        languageName: currentLanguage,
+        title: videoTitle,
+        htmlCode: htmlCode,
+        audioTrack: track || null,
+        translatedAt: new Date().toISOString(),
+      };
+      const updatedTr: ProjectTranslation = {
+        ...currentTr,
+        audioTrack: track || null,
+      };
+      const updatedTranslations: Record<string, ProjectTranslation> = {
+        ...translations,
+        [currentLanguage]: updatedTr,
+      };
+      setTranslations(updatedTranslations);
+
+      if (currentProjectId) {
+        fetch(`/api/projects/${currentProjectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currentLanguage,
+            audioTrack: track,
+            translations: updatedTranslations,
+          }),
+        }).catch((e) => console.error("Failed to persist audio track:", e));
+      }
+    } else {
+      if (masterProjectData) {
+        setMasterProjectData((prev) => (prev ? { ...prev, audioTrack: track } : prev));
+      }
+      if (currentProjectId) {
+        fetch(`/api/projects/${currentProjectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currentLanguage: "ar",
+            audioTrack: track,
+          }),
+        }).catch((e) => console.error("Failed to persist master audio track:", e));
+      }
     }
   }
 
@@ -285,7 +539,7 @@ export default function StudioPage() {
         onTranslationComplete={handleTranslationComplete}
         onOpenGenerator={() => setIsPromptOpen(true)}
         audioTrack={audioTrack}
-        onUpdateAudioTrack={setAudioTrack}
+        onUpdateAudioTrack={handleUpdateAudioTrack}
       />
 
 

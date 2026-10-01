@@ -127,6 +127,13 @@ export function PlayerView({
     }
   }, [volume, isMuted]);
 
+  // Ensure audio element loads and buffers when track url changes
+  useEffect(() => {
+    if (audioRef.current && audioTrack?.url) {
+      audioRef.current.load();
+    }
+  }, [audioTrack?.url]);
+
   function handleTogglePlay() {
     try {
       const win = iframeRef.current?.contentWindow as any;
@@ -210,6 +217,7 @@ export function PlayerView({
       {/* Hidden Audio Element synced with video */}
       {audioTrack?.url && (
         <audio
+          key={audioTrack.url}
           ref={audioRef}
           src={audioTrack.url}
           preload="auto"
@@ -867,6 +875,7 @@ export function PlayerView({
         htmlCode={htmlCode}
         durationSeconds={durationSeconds}
         videoTitle={videoTitle || "فيلم موشن جرافيك"}
+        currentLanguage={currentLanguage}
         onApplyVoiceover={(track) => {
           if (onUpdateAudioTrack) onUpdateAudioTrack(track);
           setIsVoiceoverModalOpen(false);
