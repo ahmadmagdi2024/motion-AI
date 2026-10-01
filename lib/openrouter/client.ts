@@ -1,16 +1,17 @@
 import "server-only";
-import {OpenRouterRequest} from "./types";
+import { OpenRouterRequest } from "./types";
 
 export async function sendOpenRouterRequest(
   apiKey: string,
   payload: OpenRouterRequest
 ) {
   const baseUrl = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-  const siteUrl = process.env.OPENROUTER_SITE_URL || "http://localhost:3000";
-  const appName = process.env.OPENROUTER_APP_NAME || "AI Video Studio";
+  const siteUrl = process.env.OPENROUTER_SITE_URL || "http://localhost:3005";
+  const appName = process.env.OPENROUTER_APP_NAME || "MotionAI Studio v3";
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000); // 60 seconds
+  // 120 seconds timeout for creative code generation
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -18,7 +19,7 @@ export async function sendOpenRouterRequest(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        Referer: siteUrl,
+        "HTTP-Referer": siteUrl,
         "X-Title": appName,
       },
       body: JSON.stringify(payload),
@@ -34,19 +35,28 @@ export async function sendOpenRouterRequest(
         errorBody = await response.text();
       } catch (e) {}
 
-      let errorMessage = "عطل مؤقت عند المزود أو النموذج";
-      if (response.status === 401) errorMessage = "مفتاح OpenRouter غير صالح";
-      else if (response.status === 402) errorMessage = "لا يوجد رصيد كافٍ";
-      else if (response.status === 404) errorMessage = "النموذج المحدد غير موجود أو غير متاح";
-      else if (response.status === 429) errorMessage = "تم تجاوز حد الطلبات";
-      
-      console.error("[OpenRouter] Request failed:", {
+      let errorMessage = "عطل مؤقت عند مزود الخدمة أو النموذج المختار";
+      if (response.status === 401) {
+        errorMessage = "مفتاح OpenRouter API غير صالح أو غير مصرح به";
+      } else if (response.status === 402) {
+        errorMessage = "رصيدك في OpenRouter غير كافٍ لتشغيل هذا النموذج";
+      } else if (response.status === 404) {
+        errorMessage = "النموذج المحدد غير موجود أو غير متاح حالياً على OpenRouter";
+      } else if (response.status === 429) {
+        if (payload.model.includes(":free")) {
+          errorMessage = "النموذج المجاني (:free) يواجه ضغطاً كبيراً ومؤقتاً من مزود OpenRouter. يرجى الانتظار دقيقة أو اختيار نموذج رسمي مثل Gemini 2.5 Flash أو DeepSeek V3 (تكلفته سنتات معدومة وبدون أي قيود).";
+        } else {
+          errorMessage = "تم تجاوز حد الطلبات المسموح به مؤقتاً (Rate Limit). يرجى الانتظار دقيقة وإعادة المحاولة.";
+        }
+      }
+
+      console.error("[OpenRouter v3] Request failed:", {
         status: response.status,
         model: payload.model,
         body: errorBody,
       });
-      
-      throw new Error(errorMessage);
+
+      throw new Error(`${errorMessage} (${response.status})`);
     }
 
     const data = await response.json();
@@ -54,18 +64,8 @@ export async function sendOpenRouterRequest(
   } catch (error: any) {
     clearTimeout(timeout);
     if (error.name === "AbortError") {
-      throw new Error("انتهى وقت الطلب (Timeout)");
+      throw new Error("استغرق توليد الكود وقتاً أطول من المتوقع (انتهت مهلة 120 ثانية). جرب اختيار نموذج أسرع.");
     }
     throw error;
-  }
-}
-
-export function extractJsonFromResponse(content: string) {
-  if (!content) return {};
-  const cleaned = content.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    throw new Error("لم يقم النموذج بإرجاع JSON صالح.");
   }
 }

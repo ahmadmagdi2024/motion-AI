@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: {
-    serverActions: { bodySizeLimit: '500mb' },
-    serverComponentsExternalPackages: ["@remotion/bundler", "@remotion/renderer"]
-  }
+  reactStrictMode: false,
 };
+
 export default nextConfig;

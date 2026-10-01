@@ -1,36 +1,28 @@
 {
-  "name": "ai-video-studio",
+  "name": "motion-studio-v3",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3005",
     "build": "next build",
-    "start": "next start",
-    "render-project": "tsx scripts/render.ts",
-    "typecheck": "tsc --noEmit",
-    "remotion:studio": "remotion studio remotion/index.ts",
-    "remotion:render:test": "remotion render remotion/index.ts AiVideo public/renders/test.mp4"
+    "start": "next start -p 3005",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@remotion/bundler": "4.0.529",
-    "@remotion/cli": "4.0.529",
-    "@remotion/player": "4.0.529",
-    "@remotion/renderer": "4.0.529",
+    "@lottiefiles/dotlottie-web": "^0.80.0",
+    "ffmpeg-static": "^5.3.0",
     "lucide-react": "^1.49.0",
     "next": "^14.2.15",
+    "puppeteer-core": "^25.12.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "4.0.529",
     "server-only": "^0.0.1",
-    "uuid": "^10.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
-    "@types/uuid": "^10.0.0",
-    "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   }
 }

@@ -1,167 +1,215 @@
+import { updateProjectRenderUrl } from "@/lib/db/projects";
 import "server-only";
-
-import {NextResponse} from "next/server";
+import { NextResponse } from "next/server";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import crypto from "node:crypto";
-import {bundle} from "@remotion/bundler";
-import {
-  renderMedia,
-  selectComposition,
-} from "@remotion/renderer";
-import {ProjectSchema} from "@/lib/schema";
+import { spawn } from "node:child_process";
+import puppeteer from "puppeteer-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
-const COMPOSITION_ID = "AiVideo";
-
-function getErrorDetails(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    };
-  }
-  return {
-    name: "UnknownError",
-    message: String(error),
-    stack: null,
-  };
-}
+export const maxDuration = 300; // 5 minutes
 
 export async function POST(request: Request) {
-  const renderId = crypto.randomUUID();
+  let browser: any = null;
+  let tempHtmlPath = "";
 
   try {
     const body = await request.json();
+    const { html, duration = 30, title = "motion-film", fps = 30, projectId, audioUrl } = body;
 
-    const rawProject =
-      body?.project && typeof body.project === "object"
-        ? body.project
-        : body;
-
-    const parsed = ProjectSchema.safeParse(rawProject);
-
-    if (!parsed.success) {
-      console.error(
-        "[render] Invalid project:",
-        parsed.error.flatten()
-      );
+    if (!html || typeof html !== "string") {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "INVALID_PROJECT",
-          message: "بيانات المشروع غير صالحة.",
-          details: parsed.error.flatten(),
-        },
-        {status: 400}
+        { error: "لم يتم تزويد كود HTML صالح للريندر" },
+        { status: 400 }
       );
     }
 
-    const project = parsed.data;
+    const durationSec = Math.max(2, Math.min(Number(duration) || 30, 120));
+    const renderFps = Math.max(15, Math.min(Number(fps) || 30, 60));
+    const totalFrames = Math.round(durationSec * renderFps);
 
-    const rootDirectory = process.cwd();
-    const entryPoint = path.join(
-      rootDirectory,
-      "remotion",
-      "index.ts"
-    );
-    const publicDirectory = path.join(
-      rootDirectory,
-      "public"
-    );
-    const rendersDirectory = path.join(
-      publicDirectory,
-      "renders"
-    );
+    const root = process.cwd();
+    const publicDir = path.join(root, "public");
+    const rendersDir = path.join(publicDir, "renders");
+    await fs.mkdir(rendersDir, { recursive: true });
 
-    await fs.access(entryPoint);
-    await fs.mkdir(rendersDirectory, {recursive: true});
+    const uuid = crypto.randomUUID();
+    const tempHtmlName = `temp-${uuid}.html`;
+    tempHtmlPath = path.join(rendersDir, tempHtmlName);
+    const outputMp4Name = `${uuid}.mp4`;
+    const outputMp4Path = path.join(rendersDir, outputMp4Name);
 
-    const outputFileName = `${renderId}.mp4`;
-    const outputLocation = path.join(
-      rendersDirectory,
-      outputFileName
-    );
+    // Save temporary HTML for Chrome to render
+    await fs.writeFile(tempHtmlPath, html, "utf-8");
 
-    console.log("[render] Starting:", {
-      renderId,
-      entryPoint,
-      publicDirectory,
-      outputLocation,
-      compositionId: COMPOSITION_ID,
+    // Launch Google Chrome headless
+    const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    browser = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-web-security",
+        "--disable-gpu-sandbox",
+        "--hide-scrollbars",
+      ],
     });
 
-    const serveUrl = await bundle({
-      entryPoint,
-      publicDir: publicDirectory,
-      onProgress: (progress) => {
-        console.log(
-          `[render:${renderId}] Bundling ${Math.round(progress * 100)}%`
-        );
-      },
+    const page = await browser.newPage();
+    // Native 1080x1920 vertical canvas
+    await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
+
+    const localUrl = `http://localhost:3005/renders/${tempHtmlName}`;
+    await page.goto(localUrl, { waitUntil: "networkidle0", timeout: 30000 });
+
+    // Locate FFmpeg binary
+    let ffmpegPath = path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg");
+    if (!fsSync.existsSync(ffmpegPath)) {
+      try {
+        ffmpegPath = require("ffmpeg-static");
+      } catch (e) {}
+    }
+    if (!ffmpegPath) {
+      throw new Error("تعذر العثور على محرك FFmpeg في النظام");
+    }
+
+    // Check if audio track is provided
+    let audioFilePath: string | null = null;
+    if (audioUrl && typeof audioUrl === "string") {
+      let cleanUrl = audioUrl.trim();
+      if (cleanUrl.startsWith("/")) cleanUrl = cleanUrl.substring(1);
+      const candidatePath = path.join(publicDir, cleanUrl);
+      if (fsSync.existsSync(candidatePath)) {
+        audioFilePath = candidatePath;
+        console.log(`[v3/render] Audio track attached: ${audioFilePath}`);
+      } else {
+        console.warn(`[v3/render] Audio file not found at: ${candidatePath}`);
+      }
+    }
+
+    const ffmpegArgs = [
+      "-y",
+      "-f", "image2pipe",
+      "-vcodec", "mjpeg",
+      "-r", String(renderFps),
+      "-i", "-",
+    ];
+
+    if (audioFilePath) {
+      ffmpegArgs.push(
+        "-i", audioFilePath,
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-preset", "faster",
+        "-crf", "18",
+        "-t", String(durationSec),
+        outputMp4Path
+      );
+    } else {
+      ffmpegArgs.push(
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-preset", "faster",
+        "-crf", "18",
+        outputMp4Path
+      );
+    }
+
+    // Spawn FFmpeg to encode image pipe (and optional audio) into pristine H.264 MP4
+    const ffmpeg = spawn(ffmpegPath, ffmpegArgs);
+
+    let ffmpegError = "";
+    ffmpeg.stderr.on("data", (data) => {
+      ffmpegError += data.toString();
     });
 
-    console.log("[render] Bundle created:", serveUrl);
+    console.log(`[v3/render] Starting real headless render: ${totalFrames} frames at ${renderFps} FPS...`);
 
-    const composition = await selectComposition({
-      serveUrl,
-      id: COMPOSITION_ID,
-      inputProps: {
-        project,
-      },
+    // Deterministic Frame-by-Frame Rendering
+    for (let f = 0; f < totalFrames; f++) {
+      const time = f / renderFps;
+
+      await page.evaluate((t: number) => {
+        if (typeof (window as any).renderAtTime === "function") {
+          (window as any).renderAtTime(t);
+        }
+      }, time);
+
+      // Short wait for repaint
+      await new Promise((r) => setTimeout(r, 4));
+
+      const screenshotBuf = await page.screenshot({
+        type: "jpeg",
+        quality: 92,
+      });
+
+      const writeSuccess = ffmpeg.stdin.write(screenshotBuf);
+      if (!writeSuccess) {
+        await new Promise((resolve) => ffmpeg.stdin.once("drain", resolve));
+      }
+    }
+
+    ffmpeg.stdin.end();
+
+    await new Promise((resolve, reject) => {
+      ffmpeg.on("close", (code) => {
+        if (code === 0) resolve(code);
+        else {
+          console.error("[v3/render] FFmpeg error output:", ffmpegError);
+          reject(new Error(`فشل تشفير الفيديو عبر FFmpeg (كود: ${code})`));
+        }
+      });
+      ffmpeg.on("error", reject);
     });
 
-    console.log("[render] Composition selected:", {
-      id: composition.id,
-      width: composition.width,
-      height: composition.height,
-      fps: composition.fps,
-      durationInFrames: composition.durationInFrames,
-    });
+    await browser.close();
+    browser = null;
 
-    await renderMedia({
-      composition,
-      serveUrl,
-      codec: "h264",
-      outputLocation,
-      inputProps: {
-        project,
-      },
-      overwrite: true,
-      onProgress: ({progress}) => {
-        console.log(
-          `[render:${renderId}] Rendering ${Math.round(progress * 100)}%`
-        );
-      },
-    });
+    // Clean up temporary HTML
+    await fs.unlink(tempHtmlPath).catch(() => {});
 
-    await fs.access(outputLocation);
+    console.log(`[v3/render] Video rendered successfully: ${outputMp4Path}`);
 
-    console.log("[render] Completed:", outputLocation);
+    const safeTitle = (title || "motion-film").replace(/[\/\\?%*:|"<>]/g, "-");
+
+    if (projectId) {
+      try {
+        await updateProjectRenderUrl(projectId, "/renders/" + outputMp4Name);
+      } catch (err) {
+        console.error("[v3/render] Failed to update project render URL:", err);
+      }
+    }
 
     return NextResponse.json({
-      ok: true,
-      renderId,
-      outputUrl: `/renders/${outputFileName}`,
+      success: true,
+      downloadUrl: `/renders/${outputMp4Name}`,
+      filename: `${safeTitle}.mp4`,
+      durationSeconds: durationSec,
+      fps: renderFps,
+      hasAudio: !!audioFilePath,
     });
-  } catch (error) {
-    const details = getErrorDetails(error);
-    console.error("[render] Export failed:", details);
+  } catch (error: any) {
+    console.error("[v3/render] Fatal error during video rendering:", error);
+
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+    if (tempHtmlPath) {
+      await fs.unlink(tempHtmlPath).catch(() => {});
+    }
+
     return NextResponse.json(
       {
-        ok: false,
-        error: "RENDER_FAILED",
-        message: details.message,
-        details:
-          process.env.NODE_ENV === "development"
-            ? details
-            : undefined,
+        error: error?.message || "حدث خطأ غير متوقع أثناء معالجة وريندر الفيديو",
       },
-      {status: 500}
+      { status: 500 }
     );
   }
 }
