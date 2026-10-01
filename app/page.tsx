@@ -150,6 +150,7 @@ export default function StudioPage() {
       <PlayerView
         htmlCode={htmlCode}
         durationSeconds={durationSeconds}
+        videoTitle={videoTitle}
         onOpenGenerator={() => setIsPromptOpen(true)}
         audioTrack={audioTrack}
         onUpdateAudioTrack={setAudioTrack}

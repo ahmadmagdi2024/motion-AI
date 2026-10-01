@@ -12,12 +12,16 @@ import {
   Volume2,
   VolumeX,
   X,
+  Mic,
+  Sparkles,
 } from "lucide-react";
 import { AudioPickerModal, type AudioTrack } from "./AudioPickerModal";
+import { VoiceoverModal } from "./VoiceoverModal";
 
 interface PlayerViewProps {
   htmlCode: string;
   durationSeconds?: number;
+  videoTitle?: string;
   onOpenGenerator: () => void;
   audioTrack?: AudioTrack | null;
   onUpdateAudioTrack?: (track: AudioTrack | null) => void;
@@ -26,6 +30,7 @@ interface PlayerViewProps {
 export function PlayerView({
   htmlCode,
   durationSeconds = 60,
+  videoTitle,
   onOpenGenerator,
   audioTrack = null,
   onUpdateAudioTrack,
@@ -41,6 +46,7 @@ export function PlayerView({
 
   // Audio specific states
   const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
+  const [isVoiceoverModalOpen, setIsVoiceoverModalOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
 
@@ -508,38 +514,90 @@ export function PlayerView({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setIsAudioPickerOpen(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                borderRadius: "var(--radius-md)",
-                background: "rgba(217, 182, 109, 0.12)",
-                border: "1px solid rgba(217, 182, 109, 0.35)",
-                color: "var(--pale-gold)",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(217, 182, 109, 0.22)";
-                e.currentTarget.style.borderColor = "var(--gold)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(217, 182, 109, 0.12)";
-                e.currentTarget.style.borderColor = "rgba(217, 182, 109, 0.35)";
-              }}
-            >
-              <Music size={14} color="var(--gold)" />
-              <span>إضافة مقطع صوتي</span>
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* AI Voiceover Generator Button */}
+              <button
+                type="button"
+                onClick={() => setIsVoiceoverModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: "var(--radius-md)",
+                  background: "linear-gradient(135deg, rgba(217, 182, 109, 0.25) 0%, rgba(184, 147, 69, 0.15) 100%)",
+                  border: "1px solid rgba(217, 182, 109, 0.45)",
+                  color: "var(--pale-gold)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 2px 8px rgba(217, 182, 109, 0.15)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(135deg, rgba(217, 182, 109, 0.35) 0%, rgba(184, 147, 69, 0.25) 100%)";
+                  e.currentTarget.style.borderColor = "var(--gold)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "linear-gradient(135deg, rgba(217, 182, 109, 0.25) 0%, rgba(184, 147, 69, 0.15) 100%)";
+                  e.currentTarget.style.borderColor = "rgba(217, 182, 109, 0.45)";
+                }}
+                title="توليد تعليق صوتي ذكي للمشاهد بالذكاء الاصطناعي (Fish Audio)"
+              >
+                <Mic size={14} color="var(--gold)" />
+                <span>توليد تعليق صوتي للمشاهد</span>
+              </button>
+
+              {/* Manual Audio Picker Button */}
+              <button
+                type="button"
+                onClick={() => setIsAudioPickerOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md)",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  color: "#ccc",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.25)";
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
+                  e.currentTarget.style.color = "#ccc";
+                }}
+                title="اختيار أو رفع ملف صوتي جاهز من جهازك"
+              >
+                <Music size={13} />
+                <span>رفع ملف صوتي</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Voiceover Modal */}
+      <VoiceoverModal
+        isOpen={isVoiceoverModalOpen}
+        onClose={() => setIsVoiceoverModalOpen(false)}
+        htmlCode={htmlCode}
+        durationSeconds={durationSeconds}
+        videoTitle={videoTitle || "فيلم موشن جرافيك"}
+        onApplyVoiceover={(track) => {
+          if (onUpdateAudioTrack) onUpdateAudioTrack(track);
+          setIsVoiceoverModalOpen(false);
+        }}
+      />
 
       {/* Audio Picker Modal */}
       <AudioPickerModal
