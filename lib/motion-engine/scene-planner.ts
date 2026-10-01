@@ -49,6 +49,17 @@ const PLAN_SYSTEM_PROMPT = `أنت مخرج موشن جرافيك محترف. م
    - 60% على الأقل من مشاهد الفيديو يجب أن تكون بخلفيات فاتحة ونقية ومشرقة (مثل الأبيض النقي #ffffff، الرمادي الفاتح الحديث #f8fafc، درجات الكريمي الفاتح، أو ألوان الهوية الفاتحة).
    - لكل مشهد حدد الحقل "theme": "light" أو "theme": "dark". وتأكد أن عدد المشاهد ذات "dark" لا يتجاوز 40% بأي حال.
    - في المشاهد الفاتحة: لون النصوص الأساسية (headline, kicker, metrics) يجب أن يكون داكناً متبايناً جداً (#0f172a أو #1e293b).
+8. قانون تنوع أساليب الحركة الصارم وحظر احتكار المورفينج (ANTI-MORPHING MOTION DIVERSITY):
+   - ممنوع منعاً باتاً تكرار "المورفينج" (morphTransform) أو الاعتماد عليه كحركة رئيسية عبر المشاهد!
+   - حركة "morphTransform" مقيدة بحد أقصى مشهد واحد فقط في الفيديو كاملاً (أو صفر إن لم تكن هناك ضرورة رمزية).
+   - لكل مشهد، يجب تحديد 1 إلى 2 حركة فيزيائية مختلفة في حقل "motionPrimitives" من الكتالوج المتاح:
+     * مشهد لرسم الخطوط والمسارات الحية (SVG Trim Path / Draw-On: "trimPathDrawOn")
+     * مشهد للارتداد الفيزيائي المرن والانبثاق (Elastic Spring Overshoot: "elasticSpring")
+     * مشهد لحركة الكاميرا والعمق البصري (Camera Push & Parallax: "cameraPush", "parallaxDepth")
+     * مشهد للطباعة الحركية الديناميكية (Kinetic Typography: "kineticTypography", "textRevealMask")
+     * مشهد للتمدد والانضغاط والانسياب (Squash & Stretch: "squashStretch", "paperFlutter")
+     * مشهد للدوران ثلاثي الأبعاد أو التموجات (Isometric Rotate: "isometricRotate", "stormWaves")
+   - يجب أن يختلف الأسلوب الحركي لكل مشهد كلياً عن المشهد الذي يسبقه ويليه لإضفاء تنوع بصري ديناميكي.
 
 ${buildMotionCatalog()}
 
@@ -69,7 +80,7 @@ ${buildMotionCatalog()}
       "background": "وصف الخلفية: لون فاتح/تدرج ناصع/نمط عصري",
       "colorPalette": { "primary": "#0f172a", "accent": "#d97706", "bg": "#f8fafc" },
       "elements": ["وصف كل عنصر بصري وموقعه ودوره"],
-      "motionPrimitives": ["fadeScale", "elasticSpring"],
+      "motionPrimitives": ["trimPathDrawOn", "elasticSpring"],
       "textContent": {
         "kicker": "نص الكيكر القصير",
         "headline": "العنوان الرئيسي",
@@ -171,6 +182,58 @@ function enforceDarkSceneCeiling(scenes: ScenePlanItem[]): void {
   }
 }
 
+const DIVERSE_MOTION_SETS: string[][] = [
+  ["trimPathDrawOn", "elasticSpring"],
+  ["cameraPush", "parallaxDepth"],
+  ["kineticTypography", "squashStretch"],
+  ["paperFlutter", "isometricRotate"],
+  ["dropImpact", "fadeScale"],
+  ["boatWaveFloat", "textRevealMask"],
+];
+
+function enforceMotionDiversity(scenes: ScenePlanItem[]): void {
+  let morphCount = 0;
+
+  for (let i = 0; i < scenes.length; i++) {
+    const s = scenes[i];
+    if (!s.motionPrimitives || !Array.isArray(s.motionPrimitives) || s.motionPrimitives.length === 0) {
+      s.motionPrimitives = [...DIVERSE_MOTION_SETS[i % DIVERSE_MOTION_SETS.length]];
+      continue;
+    }
+
+    const sanitized: string[] = [];
+    for (const primitive of s.motionPrimitives) {
+      const lower = primitive.toLowerCase();
+      if (lower.includes("morph")) {
+        if (morphCount === 0) {
+          morphCount++;
+          sanitized.push("morphTransform");
+        } else {
+          // Morph exceeded limit of 1 per video! Replace with distinct primitive from pool
+          const replacement = DIVERSE_MOTION_SETS[i % DIVERSE_MOTION_SETS.length][0];
+          if (!sanitized.includes(replacement)) {
+            sanitized.push(replacement);
+          }
+        }
+      } else {
+        sanitized.push(primitive);
+      }
+    }
+
+    // Ensure at least 2 distinct primitives per scene
+    if (sanitized.length < 2) {
+      const fallbackSet = DIVERSE_MOTION_SETS[i % DIVERSE_MOTION_SETS.length];
+      for (const f of fallbackSet) {
+        if (!sanitized.includes(f) && sanitized.length < 2) {
+          sanitized.push(f);
+        }
+      }
+    }
+
+    s.motionPrimitives = sanitized;
+  }
+}
+
 export async function planScenes(
   apiKey: string,
   model: string,
@@ -183,7 +246,7 @@ export async function planScenes(
     durationSeconds,
     aspectRatio: "1080x1920 portrait (9:16)",
     brandStyle: brandStyle || "Modern cinematic motion graphics",
-    instruction: "أنشئ خطة مشاهد مفصلة لهذا الفيديو مع تطبيق قانون الـ 40% كحد أقصى للمشاهد الداكنة (60%+ مشاهد فاتحة). أجب بـ JSON فقط."
+    instruction: "أنشئ خطة مشاهد مفصلة لهذا الفيديو مع تطبيق قانون الـ 40% كحد أقصى للمشاهد الداكنة (60%+ مشاهد فاتحة)، وقانون تنوع أساليب الحركة (منع احتكار المورفينج وتوزيع الحركات الفيزيائية المتنوعة على المشاهد). أجب بـ JSON فقط."
   });
 
   console.log(`[ScenePlanner] Planning scenes for ${durationSeconds}s video with model: ${model}`);
@@ -223,10 +286,13 @@ export async function planScenes(
     // Enforce 40% max dark scene ceiling
     enforceDarkSceneCeiling(plan.scenes);
 
+    // Enforce motion diversity & prevent morphing monopoly
+    enforceMotionDiversity(plan.scenes);
+
     console.log(
       `[ScenePlanner] Plan created: ${plan.scenes.length} scenes (Dark scenes: ${
         plan.scenes.filter((s) => s.theme === "dark").length
-      }/${plan.scenes.length}), title: "${plan.filmTitle}"`
+      }/${plan.scenes.length}, Primitives: ${plan.scenes.map((s, idx) => `S${idx}:[${s.motionPrimitives.join(",")}]`).join(" ")}), title: "${plan.filmTitle}"`
     );
     return plan;
   } catch (parseErr: any) {

@@ -29,6 +29,10 @@ function buildSceneSystemPrompt(plan: ScenePlan, sceneIndex: number): string {
 6. لا تكتب دوال عامة مثل renderAtTime أو play/stop أو resize — المحرك الخارجي يوفرها بالكامل.
 7. لا تستخدم alert أو window.onload أو أي مكتبات خارجية غير معرّفة.
 8. قانون الخلفيات والتباين الصارم: التزم بالثيمة المحددة للمشهد (light أو dark). إذا كان المشهد فاتحاً (light) يجب أن تكون خلفيته فاتحة ومشرقة ونصوصه داكنة عالية التباين (#0f172a أو #1e293b). وإذا كان المشهد داكناً (dark) اجعل نصوصه فاتحة ومضيئة.
+9. قانون تنوع الحركة ومنع احتكار المورفينج (إلزامي):
+   - الحركات الفيزيائية المخصصة لهذا المشهد تحديداً: [${(plan.scenes[sceneIndex]?.motionPrimitives || ["elasticSpring", "trimPathDrawOn"]).join(", ")}].
+   - التزم بتنفيذ هذه الحركات المحددة بصرياً وبرمجياً باستخدام المعادلات الرياضية.
+   - ممنوع منعاً باتاً استبدال هذه الحركات بتحول شكلي (Morphing) أو الاعتماد على تشويه المسارات. أخرج حركة فيزيائية احترافية ملموسة!
 
 ═══ الدوال الرياضية المتاحة لك تلقائياً ═══
 - clamp(v, min, max): حصر القيمة في نطاق معين
@@ -46,7 +50,7 @@ function buildSceneSystemPrompt(plan: ScenePlan, sceneIndex: number): string {
 عدد المشاهد: ${plan.scenes.length}
 
 ═══ ملخص كل المشاهد (للسياق والاستمرارية) ═══
-${plan.scenes.map((s, i) => `المشهد ${i}: "${s.title}" [${s.startTime}s → ${s.endTime}s] — ${s.visualConcept}`).join("\n")}
+${plan.scenes.map((s, i) => `المشهد ${i}: "${s.title}" [${s.startTime}s → ${s.endTime}s] — ${s.visualConcept} (الحركات: ${s.motionPrimitives?.join(", ") || "افتراضية"})`).join("\n")}
 
 ${buildMotionCatalog()}
 
@@ -112,6 +116,7 @@ function buildSceneUserPrompt(
       scene.theme === "dark"
         ? "هذا المشهد داكن (بما لا يتجاوز 40% من الفيلم): استخدم خلفية داكنة مع نصوص فاتحة ومضيئة (#ffffff أو #f5e3b8)."
         : "هذا المشهد فاتح ومشرق (قاعدة الـ 60%+ مشاهد فاتحة): استخدم خلفية فاتحة (#f8fafc أو #ffffff أو تدرج ناصع) مع نصوص داكنة عالية التباين والمقروئية (#0f172a أو #1e293b).",
+    motionExecution: `الحركات الفيزيائية الإلزامية لهذا المشهد هي: [${(scene.motionPrimitives || []).join(", ")}]. قم ببرمجتها رياضياً عبر المتغير t (مثل رسم المسارات عبر strokeDashoffset، أو معادلة الارتداد الزنبركي elasticSpring، أو حركة الكاميرا والعمق cameraPush). ممنوع منعاً باتاً استبدالها بالمورفينج المتكرر!`,
     inception: "قانون بداية الحركة: كل عنصر يبدأ من حالة بداية مقصودة (مختفٍ أو خارج الشاشة أو مصغّر).",
     continuity: "قانون الانتقال: لا تحذف العناصر فجأة بل خروج انسيابي.",
     timing: `مدة المشهد ${scene.durationSeconds} ثانية، وزّع الأحداث تدريجياً عبر الزمن t.`,
