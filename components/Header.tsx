@@ -35,35 +35,45 @@ export function Header({
   return (
     <header
       style={{
-        height: 68,
+        height: 70,
         padding: "0 24px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         borderBottom: "1px solid var(--border-subtle)",
-        background: "rgba(10, 12, 12, 0.95)",
-        backdropFilter: "blur(12px)",
+        background: "rgba(10, 12, 14, 0.98)",
+        backdropFilter: "blur(16px)",
         position: "sticky",
         top: 0,
         zIndex: 50,
+        gap: 16,
       }}
     >
-      {/* Brand Identity */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      {/* Brand Identity - Never Shrink or Collide */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          flexShrink: 0,
+          whiteSpace: "nowrap",
+        }}
+      >
         <div
           style={{
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
             borderRadius: 12,
-            background: "linear-gradient(135deg, #2b2518, #111312)",
+            background: "linear-gradient(135deg, #2e2617 0%, #151817 100%)",
             border: "1px solid var(--gold)",
             display: "grid",
             placeItems: "center",
-            boxShadow: "0 0 16px rgba(217, 182, 109, 0.25)",
-            color: "var(--gold)",
-            fontWeight: 800,
-            fontSize: 18,
+            boxShadow: "0 0 18px rgba(217, 182, 109, 0.3)",
+            color: "var(--gold-bright)",
+            fontWeight: 900,
+            fontSize: 19,
             fontFamily: "Montserrat",
+            flexShrink: 0,
           }}
         >
           M3
@@ -71,56 +81,70 @@ export function Header({
 
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <strong style={{ fontSize: 16, letterSpacing: "-0.01em", color: "#fff" }}>
-              MOTION AI <span style={{ color: "var(--gold)" }}>v3</span>
+            <strong style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em", color: "#ffffff" }}>
+              MOTION AI <span style={{ color: "var(--gold-bright)" }}>v3</span>
             </strong>
             <span
               style={{
                 fontSize: 9,
                 padding: "2px 7px",
                 borderRadius: 6,
-                background: "rgba(217, 182, 109, 0.15)",
+                background: "rgba(217, 182, 109, 0.18)",
                 color: "var(--pale-gold)",
-                fontWeight: 600,
-                border: "1px solid rgba(217, 182, 109, 0.3)",
+                fontWeight: 700,
+                border: "1px solid rgba(217, 182, 109, 0.4)",
+                letterSpacing: "0.04em",
               }}
             >
               CINEMATIC ENGINE
             </span>
           </div>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
             استوديو الموشن جرافيك السينمائي بمستوى After Effects
           </span>
         </div>
       </div>
 
       {/* Action Buttons & Badges */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "nowrap",
+          overflowX: "auto",
+          padding: "4px 0",
+        }}
+      >
         {/* Model status pill */}
         <button
+          type="button"
           onClick={onOpenSettings}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "6px 12px",
+            padding: "7px 12px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.04)",
-            border: "1px solid var(--border-subtle)",
-            color: "#ccc",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            color: "#ffffff",
             fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
           title="تغيير النموذج أو مفتاح OpenRouter"
         >
-          <Cpu size={14} color="var(--gold)" />
-          <span style={{ direction: "ltr", fontFamily: "Montserrat", fontSize: 11 }}>
+          <Cpu size={14} color="var(--gold-bright)" />
+          <span style={{ direction: "ltr", fontFamily: "Montserrat", fontSize: 11, fontWeight: 700 }}>
             {modelShortName}
           </span>
           {apiKeyConfigured ? (
             <span
               style={{
-                width: 7,
-                height: 7,
+                width: 8,
+                height: 8,
                 borderRadius: "50%",
                 background: "var(--emerald)",
                 boxShadow: "0 0 8px var(--emerald)",
@@ -130,8 +154,8 @@ export function Header({
           ) : (
             <span
               style={{
-                width: 7,
-                height: 7,
+                width: 8,
+                height: 8,
                 borderRadius: "50%",
                 background: "#f59e0b",
                 boxShadow: "0 0 8px #f59e0b",
@@ -143,18 +167,21 @@ export function Header({
 
         {/* Reset Default */}
         <button
+          type="button"
           onClick={onResetDefault}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "8px 12px",
+            padding: "7px 12px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid var(--border-subtle)",
-            color: "#aaa",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.14)",
+            color: "#e2e8f0",
             fontSize: 12,
-            fontWeight: 500,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
           title="استعادة فيلم العطور النموذجي"
         >
@@ -164,143 +191,166 @@ export function Header({
 
         {/* Visual Styles Button */}
         <button
+          type="button"
           onClick={onOpenStyles}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 7,
-            padding: "8px 14px",
+            padding: "7px 13px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(217, 182, 109, 0.08)",
-            border: "1px solid rgba(217, 182, 109, 0.35)",
-            color: "var(--pale-gold)",
+            background: "rgba(217, 182, 109, 0.12)",
+            border: "1px solid rgba(217, 182, 109, 0.4)",
+            color: "#ffffff",
             fontSize: 12,
-            fontWeight: 600,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
           title="اختيار نمط وأسلوب ألوان الرسم والفيديو (سينمائي / فلات صلب)"
         >
-          <Palette size={15} color="var(--gold)" />
-          <span>أنماط الرسم: {selectedStyleName || "سينمائي"}</span>
+          <Palette size={15} color="var(--gold-bright)" />
+          <span>النمط: <strong style={{ color: "var(--pale-gold)" }}>{selectedStyleName || "سينمائي"}</strong></span>
         </button>
 
         {/* Projects Library Button */}
         <button
+          type="button"
           onClick={onOpenLibrary}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 7,
-            padding: "8px 14px",
+            padding: "7px 14px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid var(--border-subtle)",
-            color: "#eee",
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            color: "#ffffff",
             fontSize: 12,
-            fontWeight: 600,
+            fontWeight: 700,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
           title="مكتبة الفيديوهات والمشاريع المحفوظة"
         >
-          <FolderOpen size={15} color="var(--pale-gold)" />
+          <FolderOpen size={15} color="var(--gold-bright)" />
           <span>مكتبة المشاريع</span>
         </button>
 
         {/* Export Video (MP4) Button - PROMINENT */}
         <button
+          type="button"
           onClick={onOpenExportVideo}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 7,
-            padding: "8px 16px",
+            padding: "7px 16px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(217, 182, 109, 0.15)",
-            border: "1px solid var(--gold)",
-            color: "var(--pale-gold)",
+            background: "rgba(74, 222, 128, 0.12)",
+            border: "1px solid rgba(74, 222, 128, 0.45)",
+            color: "#ffffff",
             fontSize: 12,
-            fontWeight: 700,
-            boxShadow: "0 0 14px rgba(217, 182, 109, 0.2)",
+            fontWeight: 800,
+            cursor: "pointer",
+            boxShadow: "0 0 14px rgba(74, 222, 128, 0.2)",
+            whiteSpace: "nowrap",
           }}
         >
-          <Video size={16} color="var(--gold)" />
+          <Video size={15} color="var(--emerald)" />
           <span>تصدير فيديو (MP4)</span>
         </button>
 
         {/* Export HTML */}
         <button
+          type="button"
           onClick={onDownloadHtml}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "8px 13px",
+            padding: "7px 12px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid var(--border-subtle)",
-            color: "#ddd",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            color: "#e2e8f0",
             fontSize: 12,
-            fontWeight: 500,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
           title="تحميل كود HTML التفاعلي الكامل"
         >
-          <Download size={14} color="var(--pale-gold)" />
+          <Download size={14} color="var(--gold-bright)" />
           <span>تصدير HTML</span>
         </button>
 
         {/* Code Editor */}
         <button
+          type="button"
           onClick={onOpenCode}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "8px 13px",
+            padding: "7px 12px",
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid var(--border-subtle)",
-            color: "#ddd",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            color: "#e2e8f0",
             fontSize: 12,
-            fontWeight: 500,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
           }}
         >
-          <Code2 size={14} color="var(--pale-gold)" />
+          <Code2 size={14} color="var(--gold-bright)" />
           <span>محرر الكود</span>
         </button>
 
         {/* Settings button */}
         <button
+          type="button"
           onClick={onOpenSettings}
           style={{
             width: 38,
             height: 38,
             borderRadius: "var(--radius-md)",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid var(--border-subtle)",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
             display: "grid",
             placeItems: "center",
-            color: "#ccc",
+            color: "#ffffff",
+            cursor: "pointer",
+            flexShrink: 0,
           }}
           title="الإعدادات ومزود الخدمة"
         >
           <Settings size={17} />
         </button>
 
-        {/* Generate Button */}
+        {/* Generate Button - HIGH CONTRAST */}
         <button
+          type="button"
           onClick={onOpenGenerator}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "9px 18px",
+            padding: "9px 20px",
             borderRadius: "var(--radius-md)",
-            background: "linear-gradient(135deg, #d9b66d, #b59247)",
-            color: "#14110b",
+            background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
+            color: "#0a0b0d",
             fontSize: 13,
-            fontWeight: 700,
-            boxShadow: "0 0 20px rgba(217, 182, 109, 0.35)",
+            fontWeight: 800,
+            cursor: "pointer",
+            border: "none",
+            boxShadow: "0 0 20px rgba(251, 191, 36, 0.4)",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
           }}
         >
-          <Sparkles size={16} />
+          <Sparkles size={16} fill="#0a0b0d" />
           <span>توليد بالذكاء الاصطناعي</span>
         </button>
       </div>

@@ -246,19 +246,20 @@ export function PlayerView({
                 display: "flex",
                 alignItems: "center",
                 gap: 7,
-                padding: "6px 12px",
+                padding: "7px 14px",
                 borderRadius: "var(--radius-md)",
-                border: "1px solid rgba(217, 182, 109, 0.35)",
-                background: "rgba(217, 182, 109, 0.12)",
-                color: "var(--pale-gold)",
+                border: "1px solid rgba(217, 182, 109, 0.5)",
+                background: "rgba(14, 18, 22, 0.92)",
+                color: "#ffffff",
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
+                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
               }}
               title="تبديل لغة عرض وتشغيل الفيديو"
             >
-              <Globe size={13} color="var(--gold)" />
-              <span style={{ fontSize: 13 }}>
+              <Globe size={14} color="var(--gold-bright)" />
+              <span style={{ fontSize: 14 }}>
                 {getLanguageByCode(currentLanguage)?.flag || (currentLanguage === "ar" ? "🇸🇦" : "🌐")}
               </span>
               <span>
@@ -269,17 +270,18 @@ export function PlayerView({
                 <span
                   style={{
                     fontSize: 10,
-                    padding: "1px 5px",
+                    padding: "2px 6px",
                     borderRadius: 8,
-                    background: "rgba(255, 255, 255, 0.12)",
-                    color: "#fff",
-                    fontWeight: 700,
+                    background: "rgba(217, 182, 109, 0.25)",
+                    color: "var(--pale-gold)",
+                    fontWeight: 800,
+                    border: "1px solid rgba(217, 182, 109, 0.4)",
                   }}
                 >
                   {Object.keys(translations || {}).length + 1}
                 </span>
               )}
-              <ChevronDown size={13} />
+              <ChevronDown size={14} color="var(--gold-bright)" />
             </button>
 
             {/* Dropdown Menu */}
@@ -295,19 +297,19 @@ export function PlayerView({
                     top: "calc(100% + 6px)",
                     right: 0,
                     zIndex: 999,
-                    minWidth: 230,
-                    background: "#121417",
-                    border: "1px solid rgba(217, 182, 109, 0.35)",
+                    minWidth: 240,
+                    background: "#111418",
+                    border: "1px solid rgba(217, 182, 109, 0.45)",
                     borderRadius: 12,
-                    padding: "6px",
-                    boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
+                    padding: "8px",
+                    boxShadow: "0 20px 45px rgba(0, 0, 0, 0.95)",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 4,
+                    gap: 5,
                     direction: "rtl",
                   }}
                 >
-                  <div style={{ padding: "6px 10px", fontSize: 11, color: "#888", fontWeight: 700 }}>
+                  <div style={{ padding: "6px 10px", fontSize: 11, color: "var(--text-muted)", fontWeight: 800 }}>
                     لغات هذا الفيديو المتوفرة:
                   </div>
 
@@ -322,22 +324,22 @@ export function PlayerView({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "8px 10px",
+                      padding: "9px 12px",
                       borderRadius: 8,
-                      background: currentLanguage === "ar" ? "rgba(217, 182, 109, 0.15)" : "transparent",
-                      color: currentLanguage === "ar" ? "var(--gold)" : "#ddd",
-                      border: "none",
+                      background: currentLanguage === "ar" ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                      color: currentLanguage === "ar" ? "var(--pale-gold)" : "#ffffff",
+                      border: currentLanguage === "ar" ? "1px solid rgba(217, 182, 109, 0.4)" : "1px solid transparent",
                       cursor: "pointer",
                       fontSize: 12,
-                      fontWeight: currentLanguage === "ar" ? 700 : 500,
+                      fontWeight: 700,
                       textAlign: "right",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span>🇸🇦</span>
+                      <span style={{ fontSize: 15 }}>🇸🇦</span>
                       <span>العربية (النسخة الأصلية)</span>
                     </div>
-                    {currentLanguage === "ar" && <Check size={14} color="var(--gold)" />}
+                    {currentLanguage === "ar" && <Check size={15} color="var(--gold-bright)" />}
                   </button>
 
                   {/* Other Translated Variants */}
@@ -358,41 +360,42 @@ export function PlayerView({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          padding: "8px 10px",
+                          padding: "9px 12px",
                           borderRadius: 8,
-                          background: isAct ? "rgba(217, 182, 109, 0.15)" : "transparent",
-                          color: isAct ? "var(--gold)" : "#ddd",
-                          border: "none",
+                          background: isAct ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                          color: isAct ? "var(--pale-gold)" : "#ffffff",
+                          border: isAct ? "1px solid rgba(217, 182, 109, 0.4)" : "1px solid transparent",
                           cursor: "pointer",
                           fontSize: 12,
-                          fontWeight: isAct ? 700 : 500,
+                          fontWeight: 700,
                           textAlign: "right",
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span>{langObj?.flag || "🌐"}</span>
+                          <span style={{ fontSize: 15 }}>{langObj?.flag || "🌐"}</span>
                           <span>{tr.languageName || langObj?.nativeName || k}</span>
                           {tr.audioTrack && (
                             <span
                               style={{
                                 fontSize: 9,
-                                padding: "1px 5px",
+                                padding: "2px 6px",
                                 borderRadius: 4,
-                                background: "rgba(82, 213, 137, 0.15)",
+                                background: "rgba(74, 222, 128, 0.2)",
                                 color: "var(--emerald)",
-                                border: "1px solid rgba(82, 213, 137, 0.3)",
+                                border: "1px solid rgba(74, 222, 128, 0.4)",
+                                fontWeight: 800,
                               }}
                             >
                               صوت
                             </span>
                           )}
                         </div>
-                        {isAct && <Check size={14} color="var(--gold)" />}
+                        {isAct && <Check size={15} color="var(--gold-bright)" />}
                       </button>
                     );
                   })}
 
-                  <div style={{ height: 1, background: "rgba(255, 255, 255, 0.1)", margin: "4px 0" }} />
+                  <div style={{ height: 1, background: "rgba(255, 255, 255, 0.12)", margin: "4px 0" }} />
 
                   {/* Action: Translate to New Language */}
                   <button
@@ -405,24 +408,23 @@ export function PlayerView({
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      padding: "8px 10px",
+                      padding: "9px 12px",
                       borderRadius: 8,
-                      background: "rgba(217, 182, 109, 0.12)",
+                      background: "rgba(217, 182, 109, 0.15)",
                       color: "var(--pale-gold)",
-                      border: "1px solid rgba(217, 182, 109, 0.3)",
+                      border: "1px solid rgba(217, 182, 109, 0.4)",
                       cursor: "pointer",
                       fontSize: 12,
-                      fontWeight: 600,
+                      fontWeight: 700,
                     }}
                   >
-                    <Plus size={14} />
+                    <Plus size={15} />
                     <span>ترجمة إلى لغة جديدة...</span>
                   </button>
                 </div>
               </>
             )}
           </div>
-
 
           {/* Film Title Badge */}
           {videoTitle && (
@@ -432,13 +434,14 @@ export function PlayerView({
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "6px 14px",
+                padding: "7px 16px",
                 borderRadius: "var(--radius-md)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                background: "rgba(0, 0, 0, 0.5)",
-                color: "#fff",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+                background: "rgba(14, 18, 22, 0.92)",
+                color: "#ffffff",
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 800,
+                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
               }}
             >
               <span>{videoTitle}</span>
@@ -454,19 +457,20 @@ export function PlayerView({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
+                gap: 7,
+                padding: "7px 14px",
                 borderRadius: "var(--radius-md)",
-                border: "1px solid rgba(217, 182, 109, 0.35)",
-                background: "rgba(217, 182, 109, 0.12)",
-                color: "var(--pale-gold)",
+                border: "1px solid rgba(217, 182, 109, 0.45)",
+                background: "rgba(217, 182, 109, 0.15)",
+                color: "#ffffff",
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: "pointer",
+                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
               }}
               title="عرض ونسخ البرومبت الذي تم إنشاء هذا الفيديو به"
             >
-              <FileText size={13} color="var(--gold)" />
+              <FileText size={14} color="var(--gold-bright)" />
               <span>عرض البرومبت</span>
             </button>
           )}
@@ -479,16 +483,17 @@ export function PlayerView({
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "6px 12px",
+                padding: "7px 14px",
                 borderRadius: "var(--radius-md)",
-                border: "1px solid rgba(82, 213, 137, 0.4)",
-                background: "rgba(82, 213, 137, 0.1)",
-                color: "var(--emerald)",
+                border: "1px solid rgba(74, 222, 128, 0.45)",
+                background: "rgba(74, 222, 128, 0.12)",
+                color: "#ffffff",
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 700,
+                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
               }}
             >
-              <Music size={13} color="var(--emerald)" />
+              <Music size={14} color="var(--emerald)" />
               <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {audioTrack.name}
               </span>
@@ -501,20 +506,25 @@ export function PlayerView({
             onClick={handleFullscreen}
             className="glass"
             style={{
-              padding: "7px 10px",
+              padding: "8px 12px",
               borderRadius: "var(--radius-md)",
-              color: "#ccc",
+              color: "#ffffff",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              background: "rgba(14, 18, 22, 0.92)",
               display: "flex",
               alignItems: "center",
               gap: 6,
               fontSize: 12,
+              fontWeight: 700,
               cursor: "pointer",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.5)",
             }}
             title={isFullscreen ? "الخروج من ملء الشاشة" : "عرض بملء الشاشة"}
           >
             {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             <span>{isFullscreen ? "تصغير" : "ملء الشاشة"}</span>
           </button>
+
         </div>
       </div>
 
@@ -562,23 +572,24 @@ export function PlayerView({
           display: "flex",
           alignItems: "center",
           gap: 16,
-          background: "rgba(12, 14, 14, 0.95)",
+          background: "rgba(10, 12, 14, 0.98)",
           borderTop: "1px solid var(--border-subtle)",
-          backdropFilter: "blur(14px)",
+          backdropFilter: "blur(16px)",
           zIndex: 30,
         }}
       >
         {/* Play/Pause & Restart */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
+            type="button"
             onClick={handleRestart}
             style={{
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               borderRadius: "50%",
-              background: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid var(--border-subtle)",
-              color: "#ccc",
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              color: "#ffffff",
               display: "grid",
               placeItems: "center",
               cursor: "pointer",
@@ -589,24 +600,26 @@ export function PlayerView({
           </button>
 
           <button
+            type="button"
             onClick={handleTogglePlay}
             style={{
               width: 44,
               height: 44,
               borderRadius: "50%",
-              background: "var(--gold)",
-              color: "#18130c",
+              background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
+              color: "#0a0b0d",
               display: "grid",
               placeItems: "center",
-              boxShadow: "0 0 16px rgba(217, 182, 109, 0.4)",
+              boxShadow: "0 0 18px rgba(251, 191, 36, 0.45)",
               cursor: "pointer",
+              border: "none",
             }}
             title={isPlaying ? "إيقاف مؤقت" : "تشغيل الفيلم"}
           >
             {isPlaying ? (
-              <Pause size={18} fill="#18130c" />
+              <Pause size={18} fill="#0a0b0d" />
             ) : (
-              <Play size={18} fill="#18130c" style={{ marginLeft: 2 }} />
+              <Play size={18} fill="#0a0b0d" style={{ marginLeft: 2 }} />
             )}
           </button>
         </div>
@@ -616,14 +629,13 @@ export function PlayerView({
           style={{
             fontFamily: "Montserrat",
             fontSize: 13,
-            color: "var(--pale-gold)",
             minWidth: 140,
             direction: "ltr",
           }}
         >
-          <strong>{formatTime(currentTime)}</strong>
+          <strong style={{ color: "#ffffff", fontWeight: 800 }}>{formatTime(currentTime)}</strong>
           <span style={{ color: "var(--text-muted)", margin: "0 6px" }}>/</span>
-          <span style={{ color: "var(--text-muted)" }}>{formatTime(durationSeconds)}</span>
+          <span style={{ color: "var(--pale-gold)", fontWeight: 700 }}>{formatTime(durationSeconds)}</span>
         </div>
 
         {/* Scrubber Slider */}
@@ -637,16 +649,16 @@ export function PlayerView({
             onChange={(e) => handleScrub(parseFloat(e.target.value))}
             style={{
               width: "100%",
-              accentColor: "var(--gold)",
+              accentColor: "var(--gold-bright)",
               cursor: "pointer",
               height: 6,
-              background: "rgba(255, 255, 255, 0.1)",
+              background: "rgba(255, 255, 255, 0.16)",
               borderRadius: 3,
             }}
           />
         </div>
 
-        {/* Audio Track Widget */}
+        {/* Audio & Action Widgets */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {audioTrack ? (
             <div
@@ -656,14 +668,14 @@ export function PlayerView({
                 gap: 8,
                 padding: "6px 12px",
                 borderRadius: "var(--radius-md)",
-                background: "rgba(217, 182, 109, 0.12)",
-                border: "1px solid rgba(217, 182, 109, 0.35)",
+                background: "rgba(74, 222, 128, 0.12)",
+                border: "1px solid rgba(74, 222, 128, 0.45)",
               }}
             >
               {/* Music Icon */}
               <div
                 style={{
-                  color: isPlaying ? "var(--gold)" : "#888",
+                  color: "var(--emerald)",
                   display: "flex",
                   alignItems: "center",
                 }}
@@ -675,8 +687,8 @@ export function PlayerView({
               <span
                 style={{
                   fontSize: 12,
-                  fontWeight: 600,
-                  color: "#fff",
+                  fontWeight: 700,
+                  color: "#ffffff",
                   maxWidth: 140,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -694,7 +706,7 @@ export function PlayerView({
                 style={{
                   background: "none",
                   border: "none",
-                  color: isMuted ? "#ef4444" : "var(--pale-gold)",
+                  color: isMuted ? "#ef4444" : "var(--gold-bright)",
                   cursor: "pointer",
                   display: "grid",
                   placeItems: "center",
@@ -702,7 +714,7 @@ export function PlayerView({
                 }}
                 title={isMuted ? "إلغاء الكتم" : "كتم الصوت"}
               >
-                {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
               </button>
 
               {/* Change track button */}
@@ -710,12 +722,13 @@ export function PlayerView({
                 type="button"
                 onClick={() => setIsAudioPickerOpen(true)}
                 style={{
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid var(--border-subtle)",
-                  color: "#ddd",
+                  background: "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.22)",
+                  color: "#ffffff",
                   fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 4,
+                  fontWeight: 700,
+                  padding: "4px 9px",
+                  borderRadius: 6,
                   cursor: "pointer",
                 }}
                 title="تغيير المقطع الصوتي"
@@ -728,21 +741,21 @@ export function PlayerView({
                 type="button"
                 onClick={() => setIsTranslateModalOpen(true)}
                 style={{
-                  background: "rgba(217, 182, 109, 0.12)",
-                  border: "1px solid rgba(217, 182, 109, 0.35)",
-                  color: "var(--pale-gold)",
+                  background: "rgba(59, 130, 246, 0.18)",
+                  border: "1px solid rgba(96, 165, 250, 0.45)",
+                  color: "#ffffff",
                   fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 4,
+                  fontWeight: 700,
+                  padding: "4px 9px",
+                  borderRadius: 6,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
-                  fontWeight: 600,
                 }}
                 title="ترجمة وتوطين الفيديو"
               >
-                <Globe size={11} color="var(--gold)" />
+                <Globe size={12} color="#60a5fa" />
                 <span>ترجمة</span>
               </button>
 
@@ -753,17 +766,15 @@ export function PlayerView({
                 style={{
                   background: "none",
                   border: "none",
-                  color: "#888",
+                  color: "#f87171",
                   cursor: "pointer",
                   display: "grid",
                   placeItems: "center",
                   padding: 2,
                 }}
                 title="إزالة المقطع الصوتي"
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#888")}
               >
-                <X size={13} />
+                <X size={14} />
               </button>
             </div>
           ) : (
@@ -775,29 +786,22 @@ export function PlayerView({
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
+                  gap: 7,
+                  padding: "8px 15px",
                   borderRadius: "var(--radius-md)",
-                  background: "linear-gradient(135deg, rgba(217, 182, 109, 0.25) 0%, rgba(184, 147, 69, 0.15) 100%)",
-                  border: "1px solid rgba(217, 182, 109, 0.45)",
-                  color: "var(--pale-gold)",
+                  background: "linear-gradient(135deg, rgba(217, 182, 109, 0.3) 0%, rgba(180, 130, 40, 0.18) 100%)",
+                  border: "1px solid rgba(251, 191, 36, 0.55)",
+                  color: "#ffffff",
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
-                  boxShadow: "0 2px 8px rgba(217, 182, 109, 0.15)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(135deg, rgba(217, 182, 109, 0.35) 0%, rgba(184, 147, 69, 0.25) 100%)";
-                  e.currentTarget.style.borderColor = "var(--gold)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "linear-gradient(135deg, rgba(217, 182, 109, 0.25) 0%, rgba(184, 147, 69, 0.15) 100%)";
-                  e.currentTarget.style.borderColor = "rgba(217, 182, 109, 0.45)";
+                  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.4)",
+                  whiteSpace: "nowrap",
                 }}
                 title="توليد تعليق صوتي ذكي للمشاهد بالذكاء الاصطناعي (Fish Audio)"
               >
-                <Mic size={14} color="var(--gold)" />
+                <Mic size={15} color="var(--gold-bright)" />
                 <span>توليد تعليق صوتي للمشاهد</span>
               </button>
 
@@ -809,27 +813,21 @@ export function PlayerView({
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "8px 12px",
+                  padding: "8px 14px",
                   borderRadius: "var(--radius-md)",
-                  background: "rgba(217, 182, 109, 0.1)",
-                  border: "1px solid rgba(217, 182, 109, 0.35)",
-                  color: "var(--pale-gold)",
+                  background: "rgba(59, 130, 246, 0.16)",
+                  border: "1px solid rgba(96, 165, 250, 0.5)",
+                  color: "#ffffff",
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 800,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(217, 182, 109, 0.2)";
-                  e.currentTarget.style.borderColor = "var(--gold)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(217, 182, 109, 0.1)";
-                  e.currentTarget.style.borderColor = "rgba(217, 182, 109, 0.35)";
+                  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.4)",
+                  whiteSpace: "nowrap",
                 }}
                 title="ترجمة وتوطين نصوص الفيديو والتعليق الصوتي إلى لغات العالم"
               >
-                <Globe size={13} color="var(--gold)" />
+                <Globe size={15} color="#60a5fa" />
                 <span>ترجمة الفيديو</span>
               </button>
 
@@ -841,29 +839,20 @@ export function PlayerView({
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "8px 12px",
+                  padding: "8px 13px",
                   borderRadius: "var(--radius-md)",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  color: "#ccc",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.25)";
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-                  e.currentTarget.style.color = "#ccc";
+                  whiteSpace: "nowrap",
                 }}
                 title="اختيار أو رفع ملف صوتي جاهز من جهازك"
               >
-                <Music size={13} />
+                <Music size={14} color="#ffffff" />
                 <span>رفع ملف صوتي</span>
               </button>
             </div>

@@ -1,21 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-main: #060707;
-  --bg-surface: #0e1010;
-  --bg-card: rgba(22, 25, 24, 0.75);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(217, 182, 109, 0.35);
+  --bg-main: #050607;
+  --bg-surface: #0c0e10;
+  --bg-card: rgba(18, 22, 25, 0.88);
+  --border-subtle: rgba(255, 255, 255, 0.14);
+  --border-highlight: rgba(229, 190, 110, 0.45);
   --gold: #d9b66d;
-  --gold-glow: rgba(217, 182, 109, 0.2);
-  --pale-gold: #f5e3b8;
-  --emerald: #52d589;
+  --gold-glow: rgba(217, 182, 109, 0.25);
+  --gold-bright: #fbbf24;
+  --pale-gold: #fef08a;
+  --emerald: #4ade80;
   --text-main: #ffffff;
-  --text-muted: #8e9297;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
   --radius-lg: 16px;
   --radius-md: 10px;
   --radius-sm: 6px;
 }
+
 
 * {
   box-sizing: border-box;
