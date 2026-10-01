@@ -325,7 +325,7 @@ export function PlayerView({
                   <button
                     type="button"
                     onClick={() => {
-                      if (onSelectLanguage) onSelectLanguage("ar");
+                      if (onSelectLanguage) onSelectLanguage("master");
                       setIsLangDropdownOpen(false);
                     }}
                     style={{
@@ -334,9 +334,9 @@ export function PlayerView({
                       justifyContent: "space-between",
                       padding: "9px 12px",
                       borderRadius: 8,
-                      background: currentLanguage === "ar" ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
-                      color: currentLanguage === "ar" ? "var(--pale-gold)" : "#ffffff",
-                      border: currentLanguage === "ar" ? "1px solid rgba(217, 182, 109, 0.4)" : "1px solid transparent",
+                      background: currentLanguage === "ar" && (!translations || !translations["ar"]) ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                      color: currentLanguage === "ar" && (!translations || !translations["ar"]) ? "var(--pale-gold)" : "#ffffff",
+                      border: currentLanguage === "ar" && (!translations || !translations["ar"]) ? "1px solid rgba(217, 182, 109, 0.4)" : "1px solid transparent",
                       cursor: "pointer",
                       fontSize: 12,
                       fontWeight: 700,
@@ -347,7 +347,7 @@ export function PlayerView({
                       <span style={{ fontSize: 15 }}>🇸🇦</span>
                       <span>العربية (النسخة الأصلية)</span>
                     </div>
-                    {currentLanguage === "ar" && <Check size={15} color="var(--gold-bright)" />}
+                    {currentLanguage === "ar" && (!translations || !translations["ar"]) && <Check size={15} color="var(--gold-bright)" />}
                   </button>
 
                   {/* Other Translated Variants */}

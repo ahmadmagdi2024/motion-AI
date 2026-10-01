@@ -357,7 +357,7 @@ export default function StudioPage() {
       }).catch((e) => console.error("Failed to persist language:", e));
     }
 
-    if (langCode === "ar" || !translations[langCode]) {
+    if (langCode === "master" || (!translations[langCode] && langCode === "ar")) {
       // Restore original master film
       if (masterProjectData) {
         setHtmlCode(masterProjectData.htmlCode);

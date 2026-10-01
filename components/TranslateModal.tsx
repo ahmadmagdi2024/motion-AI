@@ -14,7 +14,7 @@ import {
   ArrowRight,
   Search,
 } from "lucide-react";
-import { SUPPORTED_LANGUAGES, LanguageOption } from "@/lib/constants/languages";
+import { SUPPORTED_LANGUAGES, LanguageOption, resolveLanguageInput } from "@/lib/constants/languages";
 import { ProjectTranslation } from "@/lib/db/projects";
 
 interface TranslateModalProps {
@@ -42,13 +42,12 @@ export function TranslateModal({
   sourceVoiceoverScript,
   onTranslationComplete,
 }: TranslateModalProps) {
-  const [selectedLang, setSelectedLang] = useState<LanguageOption>(
-    SUPPORTED_LANGUAGES.find((l) => l.code === "en") || SUPPORTED_LANGUAGES[1]
-  );
-  const [customLangName, setCustomLangName] = useState("");
-  const [customLangCode, setCustomLangCode] = useState("");
-  const [isCustom, setIsCustom] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  // Default target: If currentLanguage is Arabic, default input to "English", otherwise "العربية"
+  const defaultTargetName = currentLanguage === "ar" ? "English" : "العربية";
+  const [languageInput, setLanguageInput] = useState(defaultTargetName);
+  const [customCode, setCustomCode] = useState("");
+  const [customDir, setCustomDir] = useState<"ltr" | "rtl" | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [translateVisuals, setTranslateVisuals] = useState(true);
   const [translateVoiceover, setTranslateVoiceover] = useState(true);
@@ -60,30 +59,38 @@ export function TranslateModal({
 
   if (!isOpen) return null;
 
-  const filteredLanguages = SUPPORTED_LANGUAGES.filter(
-    (l) =>
-      l.code !== currentLanguage &&
-      (l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        l.nativeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        l.code.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Auto-resolve language name to ISO code, text direction, and flag
+  const resolved = resolveLanguageInput(languageInput);
+  const effectiveCode = (customCode.trim() || resolved.code).toLowerCase();
+  const effectiveDir = customDir || resolved.dir;
+  const effectiveFlag = resolved.flag || "🌐";
+
+  function handleInputChange(val: string) {
+    setLanguageInput(val);
+    const res = resolveLanguageInput(val);
+    setCustomCode(res.code);
+    setCustomDir(res.dir);
+  }
+
+  function handleSelectQuickLang(lang: LanguageOption) {
+    setLanguageInput(lang.nativeName);
+    setCustomCode(lang.code);
+    setCustomDir(lang.dir);
+  }
 
   async function handleStartTranslation() {
+    if (!languageInput.trim()) {
+      setErrorMsg("يرجى إدخال اسم اللغة المراد الترجمة إليها.");
+      return;
+    }
+
     setErrorMsg(null);
     setIsTranslating(true);
     setStepIndex(1); // 1. Translating visual HTML
 
-    const targetCode = isCustom
-      ? customLangCode.trim().toLowerCase() || "custom"
-      : selectedLang.code;
-    const targetName = isCustom
-      ? customLangName.trim() || "Custom Language"
-      : selectedLang.nativeName;
-    const targetDir = isCustom
-      ? ["ar", "fa", "ur", "he"].includes(targetCode)
-        ? "rtl"
-        : "ltr"
-      : selectedLang.dir;
+    const targetCode = effectiveCode;
+    const targetName = languageInput.trim();
+    const targetDir = effectiveDir;
 
     try {
       // Step simulator for UI feedback
@@ -267,7 +274,7 @@ export function TranslateModal({
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 440 }}>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: "#fff", margin: 0 }}>
-                  جاري ترجمة وتوطين الفيديو إلى {isCustom ? customLangName : selectedLang.nativeName}...
+                  جاري ترجمة وتوطين الفيديو إلى {languageInput.trim()} ({effectiveCode})...
                 </h3>
                 <p style={{ fontSize: 13, color: "var(--pale-gold)", lineHeight: 1.6 }}>
                   {stepIndex === 1 && "1/3: جاري ترجمة نصوص المشاهد وتكييف اتجاهات وتصميم الفيديو (HTML/CSS)..."}
@@ -319,7 +326,7 @@ export function TranslateModal({
             </div>
           ) : (
             <>
-              {/* Step 1: Select Language */}
+              {/* Step 1: Manual Language Input & Quick Suggestions */}
               <div>
                 <label
                   style={{
@@ -327,177 +334,139 @@ export function TranslateModal({
                     fontSize: 13,
                     fontWeight: 700,
                     color: "#fff",
-                    marginBottom: 10,
+                    marginBottom: 8,
                   }}
                 >
-                  اختر لغة الوجهة:
+                  اسم اللغة المراد ترجمة وتوطين الفيديو إليها (أدخل أي لغة في العالم):
                 </label>
 
-                {/* Search Bar for Languages */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    background: "rgba(255, 255, 255, 0.04)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    marginBottom: 12,
-                  }}
-                >
-                  <Search size={15} color="#888" />
+                {/* Primary Manual Language Input */}
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: 14,
+                      fontSize: 18,
+                      pointerEvents: "none",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {effectiveFlag}
+                  </span>
                   <input
                     type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="ابحث عن لغة (إنجليزية، فرنسية، ألمانية، تركية، صينية...)"
+                    value={languageInput}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder="اكتب اسم أي لغة يدوياً (مثال: العربية، English، الفرنسية، Deutsch، Türkçe، Русский...)"
                     style={{
-                      flex: 1,
-                      background: "transparent",
-                      border: "none",
+                      width: "100%",
+                      padding: "12px 42px 12px 60px",
+                      borderRadius: 12,
+                      background: "#050608",
+                      border: "1px solid rgba(217, 182, 109, 0.4)",
+                      color: "#ffffff",
+                      fontSize: 14,
+                      fontWeight: 600,
                       outline: "none",
-                      color: "#fff",
-                      fontSize: 12,
+                      boxShadow: "0 0 15px rgba(217, 182, 109, 0.1)",
                     }}
                   />
-                  {searchQuery && (
+                  {languageInput && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
-                      style={{ background: "none", border: "none", color: "#888", fontSize: 11, cursor: "pointer" }}
+                      onClick={() => handleInputChange("")}
+                      style={{
+                        position: "absolute",
+                        left: 12,
+                        background: "none",
+                        border: "none",
+                        color: "#888",
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
                     >
                       مسح
                     </button>
                   )}
                 </div>
 
-                {/* Popular Languages Grid */}
+                {/* Smart Detection & Info Bar */}
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 8,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    background: "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid rgba(255, 255, 255, 0.07)",
+                    flexWrap: "wrap",
                     gap: 8,
-                    maxHeight: 180,
-                    overflowY: "auto",
-                    padding: 4,
                   }}
                 >
-                  {filteredLanguages.map((lang) => {
-                    const isSelected = !isCustom && selectedLang.code === lang.code;
-                    const alreadyTranslated = !!existingTranslations[lang.code];
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 12, color: "#ccc" }}>
+                    <span>
+                      رمز اللغة:{" "}
+                      <b style={{ color: "var(--gold-bright)", direction: "ltr", display: "inline-block" }}>
+                        {effectiveCode || "تلقائي"}
+                      </b>
+                    </span>
+                    <span>
+                      الاتجاه:{" "}
+                      <b style={{ color: effectiveDir === "rtl" ? "var(--emerald)" : "var(--cyan)" }}>
+                        {effectiveDir === "rtl" ? "من اليمين لليسار (RTL)" : "من اليسار لليمين (LTR)"}
+                      </b>
+                    </span>
+                  </div>
 
-                    return (
-                      <button
-                        key={lang.code}
-                        type="button"
-                        onClick={() => {
-                          setIsCustom(false);
-                          setSelectedLang(lang);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "8px 10px",
-                          borderRadius: 10,
-                          background: isSelected
-                            ? "rgba(217, 182, 109, 0.18)"
-                            : "rgba(255, 255, 255, 0.03)",
-                          border: isSelected
-                            ? "1px solid var(--gold)"
-                            : "1px solid rgba(255, 255, 255, 0.08)",
-                          color: isSelected ? "var(--pale-gold)" : "#ddd",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          position: "relative",
-                        }}
-                      >
-                        <span style={{ fontSize: 16 }}>{lang.flag}</span>
-                        <div style={{ textAlign: "right", overflow: "hidden" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
-                            {lang.nativeName}
-                          </div>
-                          <div style={{ fontSize: 10, color: "#888", direction: "ltr" }}>
-                            {lang.name}
-                          </div>
-                        </div>
-                        {alreadyTranslated && (
-                          <span
-                            title="تمت ترجمتها مسبقاً (يمكن إعادة توليدها)"
-                            style={{
-                              position: "absolute",
-                              left: 6,
-                              top: 6,
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: "var(--emerald)",
-                            }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Language Toggle */}
-                <div style={{ marginTop: 12 }}>
                   <button
                     type="button"
-                    onClick={() => setIsCustom(!isCustom)}
+                    onClick={() => setShowAdvanced(!showAdvanced)}
                     style={{
                       background: "none",
                       border: "none",
                       color: "var(--gold)",
-                      fontSize: 12,
+                      fontSize: 11,
                       cursor: "pointer",
-                      padding: 0,
-                      fontWeight: 600,
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
+                      textDecoration: "underline",
                     }}
                   >
-                    <span>+ لغة أخرى غير موجودة بالقائمة</span>
+                    <span>{showAdvanced ? "إخفاء التعديل اليدوي" : "تعديل الرمز والاتجاه يدوياً"}</span>
                   </button>
+                </div>
 
-                  {isCustom && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        display: "flex",
-                        gap: 10,
-                        padding: 12,
-                        borderRadius: 10,
-                        background: "rgba(217, 182, 109, 0.08)",
-                        border: "1px solid rgba(217, 182, 109, 0.25)",
-                      }}
-                    >
+                {/* Advanced Override Drawer */}
+                {showAdvanced && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: 12,
+                      borderRadius: 10,
+                      background: "rgba(217, 182, 109, 0.08)",
+                      border: "1px solid rgba(217, 182, 109, 0.25)",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: 11, color: "#bbb", marginBottom: 4 }}>
+                        رمز اللغة (ISO Code):
+                      </label>
                       <input
                         type="text"
-                        placeholder="اسم اللغة (مثال: السويدية / Swedish)"
-                        value={customLangName}
-                        onChange={(e) => setCustomLangName(e.target.value)}
+                        placeholder="مثل: ar, en, sv"
+                        value={customCode}
+                        onChange={(e) => setCustomCode(e.target.value)}
                         style={{
-                          flex: 2,
-                          padding: "8px 12px",
-                          borderRadius: 8,
-                          background: "#000",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          color: "#fff",
-                          fontSize: 12,
-                        }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="رمز اللغة (مثال: sv)"
-                        value={customLangCode}
-                        onChange={(e) => setCustomLangCode(e.target.value)}
-                        style={{
-                          flex: 1,
-                          padding: "8px 12px",
-                          borderRadius: 8,
+                          width: "100%",
+                          padding: "6px 10px",
+                          borderRadius: 6,
                           background: "#000",
                           border: "1px solid rgba(255, 255, 255, 0.15)",
                           color: "#fff",
@@ -506,7 +475,112 @@ export function TranslateModal({
                         }}
                       />
                     </div>
-                  )}
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, color: "#bbb", marginBottom: 4 }}>
+                        اتجاه النصوص:
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => setCustomDir("rtl")}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 6,
+                            background: effectiveDir === "rtl" ? "var(--gold)" : "rgba(255, 255, 255, 0.06)",
+                            color: effectiveDir === "rtl" ? "#000" : "#fff",
+                            border: "none",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          RTL (يمين)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomDir("ltr")}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 6,
+                            background: effectiveDir === "ltr" ? "var(--gold)" : "rgba(255, 255, 255, 0.06)",
+                            color: effectiveDir === "ltr" ? "#000" : "#fff",
+                            border: "none",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          LTR (يسار)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Selection Shortcuts (Arabic first!) */}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", marginBottom: 8 }}>
+                    أو اضغط لاختيار لغة شائعة بضغطة واحدة:
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 6,
+                      maxHeight: 140,
+                      overflowY: "auto",
+                      padding: 2,
+                    }}
+                  >
+                    {SUPPORTED_LANGUAGES.map((lang) => {
+                      const isSelected =
+                        effectiveCode === lang.code ||
+                        languageInput.trim().toLowerCase() === lang.nativeName.toLowerCase() ||
+                        languageInput.trim().toLowerCase() === lang.name.toLowerCase();
+                      const alreadyTranslated = !!existingTranslations[lang.code];
+
+                      return (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => handleSelectQuickLang(lang)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 11px",
+                            borderRadius: 20,
+                            background: isSelected
+                              ? "rgba(217, 182, 109, 0.25)"
+                              : "rgba(255, 255, 255, 0.04)",
+                            border: isSelected
+                              ? "1px solid var(--gold)"
+                              : "1px solid rgba(255, 255, 255, 0.1)",
+                            color: isSelected ? "var(--pale-gold)" : "#ddd",
+                            fontSize: 12,
+                            fontWeight: isSelected ? 700 : 500,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <span>{lang.flag}</span>
+                          <span>{lang.nativeName}</span>
+                          {alreadyTranslated && (
+                            <span
+                              title="تمت ترجمتها مسبقاً (يمكن إعادة توليدها)"
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: "var(--emerald)",
+                              }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -644,7 +718,7 @@ export function TranslateModal({
             <button
               type="button"
               onClick={handleStartTranslation}
-              disabled={isCustom && !customLangName.trim()}
+              disabled={!languageInput.trim()}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -655,14 +729,15 @@ export function TranslateModal({
                 color: "#0c0e10",
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: !languageInput.trim() ? "not-allowed" : "pointer",
+                opacity: !languageInput.trim() ? 0.5 : 1,
                 border: "none",
                 boxShadow: "0 0 20px rgba(217, 182, 109, 0.3)",
               }}
             >
               <Sparkles size={16} />
               <span>
-                بدء الترجمة وتوليد نسخة ({isCustom ? customLangName || "المخصصة" : selectedLang.nativeName})
+                بدء الترجمة وتوليد نسخة ({languageInput.trim() || "اللغة المحددة"})
               </span>
             </button>
           </div>
