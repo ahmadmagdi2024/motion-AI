@@ -14,6 +14,9 @@ import {
   X,
   Mic,
   Sparkles,
+  FileText,
+  Copy,
+  Check,
 } from "lucide-react";
 import { AudioPickerModal, type AudioTrack } from "./AudioPickerModal";
 import { VoiceoverModal } from "./VoiceoverModal";
@@ -22,6 +25,7 @@ interface PlayerViewProps {
   htmlCode: string;
   durationSeconds?: number;
   videoTitle?: string;
+  videoPrompt?: string;
   onOpenGenerator: () => void;
   audioTrack?: AudioTrack | null;
   onUpdateAudioTrack?: (track: AudioTrack | null) => void;
@@ -31,6 +35,7 @@ export function PlayerView({
   htmlCode,
   durationSeconds = 60,
   videoTitle,
+  videoPrompt,
   onOpenGenerator,
   audioTrack = null,
   onUpdateAudioTrack,
@@ -44,9 +49,11 @@ export function PlayerView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [language, setLanguage] = useState<"ar" | "en">("ar");
 
-  // Audio specific states
+  // Audio & Prompt states
   const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
   const [isVoiceoverModalOpen, setIsVoiceoverModalOpen] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
 
@@ -240,6 +247,53 @@ export function PlayerView({
             <Globe size={14} color="var(--gold)" />
             <span>{language === "ar" ? "English" : "العربية"}</span>
           </button>
+
+          {/* Film Title Badge */}
+          {videoTitle && (
+            <div
+              className="glass"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 14px",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: "rgba(0, 0, 0, 0.5)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              <span>{videoTitle}</span>
+            </div>
+          )}
+
+          {/* View Prompt Button */}
+          {videoPrompt && (
+            <button
+              type="button"
+              onClick={() => setShowPromptModal(true)}
+              className="glass"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid rgba(217, 182, 109, 0.35)",
+                background: "rgba(217, 182, 109, 0.12)",
+                color: "var(--pale-gold)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+              title="عرض ونسخ البرومبت الذي تم إنشاء هذا الفيديو به"
+            >
+              <FileText size={13} color="var(--gold)" />
+              <span>عرض البرومبت</span>
+            </button>
+          )}
 
           {/* Attached Audio Pill in Top Bar */}
           {audioTrack && (
@@ -606,6 +660,142 @@ export function PlayerView({
         onSelectAudio={(track) => onUpdateAudioTrack && onUpdateAudioTrack(track)}
         currentAudioTrack={audioTrack}
       />
+
+      {/* Prompt Details Modal */}
+      {showPromptModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(12px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            direction: "rtl",
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowPromptModal(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 650,
+              background: "#121417",
+              border: "1px solid rgba(217, 182, 109, 0.35)",
+              borderRadius: 16,
+              padding: "24px",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.9)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: "rgba(217, 182, 109, 0.15)",
+                    border: "1px solid rgba(217, 182, 109, 0.3)",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "var(--gold)",
+                  }}
+                >
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 }}>
+                    برومبت توليد هذا الفيديو
+                  </h3>
+                  <span style={{ fontSize: 12, color: "#9ca3af" }}>{videoTitle}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPromptModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(0, 0, 0, 0.4)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: 10,
+                padding: "16px",
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: "#e5e7eb",
+                maxHeight: "350px",
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                fontFamily: "inherit",
+              }}
+            >
+              {videoPrompt}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (videoPrompt) {
+                    navigator.clipboard.writeText(videoPrompt);
+                    setCopiedPrompt(true);
+                    setTimeout(() => setCopiedPrompt(false), 2000);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  background: "rgba(217, 182, 109, 0.15)",
+                  border: "1px solid rgba(217, 182, 109, 0.35)",
+                  color: "var(--pale-gold)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {copiedPrompt ? <Check size={14} color="#4ade80" /> : <Copy size={14} />}
+                <span>{copiedPrompt ? "تم النسخ للحافظة!" : "نسخ البرومبت"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPromptModal(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
