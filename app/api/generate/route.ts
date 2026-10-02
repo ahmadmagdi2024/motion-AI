@@ -18,6 +18,7 @@ import { assembleFilm } from "@/lib/motion-engine/scene-assembler";
 import { buildDynamicMotionCatalog } from "@/lib/motion-engine/motion-catalog";
 import { runAgenticEngine } from "@/lib/motion-engine/agentic/agentic-generator";
 import { injectStudioBridge } from "@/lib/motion-engine/studio-bridge";
+import { runStealthSpaceBunnyEngine } from "@/lib/motion-engine/stealth-space-bunny-engine";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -342,7 +343,12 @@ export async function POST(request: Request) {
     let title: string;
     let phaseLogs: string[] | undefined;
 
-    if (mode === "agentic") {
+    if (model.toLowerCase().includes("space-bunny") || model.toLowerCase().startsWith("stealth/")) {
+      const result = await runStealthSpaceBunnyEngine(apiKey, model, input.prompt, input.duration, input.brandStyle, input.styleId);
+      htmlCode = result.html;
+      title = result.title;
+      phaseLogs = result.phaseLogs;
+    } else if (mode === "agentic") {
       const result = await runAgenticEngine(apiKey, model, input.prompt, input.duration, input.brandStyle, input.styleId);
       htmlCode = result.html;
       title = result.title;

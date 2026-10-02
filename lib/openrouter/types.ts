@@ -31,6 +31,12 @@ export type OpenRouterSettings = {
 
 export const RECOMMENDED_MODELS = [
   {
+    id: "stealth/space-bunny-alpha",
+    name: "Space Bunny Alpha (تجريبي مجاني 🐰)",
+    description: "نموذج استدلالي تجريبي سريع ومجاني بالكامل مع معمارية التفكير المنخفض",
+    recommended: true,
+  },
+  {
     id: "google/gemini-3.8-flash",
     name: "Gemini 3.8 Flash (فائق السرعة والذكاء الحركي)",
     description: "سرعة معالجة خاطفة مع استيعاب عميق للغة العربية ودقة عالية في هندسة المشاهد",

@@ -61,6 +61,7 @@ const PRESET_IDEAS = [
 ];
 
 const DEFAULT_QUICK_MODELS = [
+  { id: "stealth/space-bunny-alpha", name: "Space Bunny Alpha", badge: "تجريبي مجاني 🐰" },
   { id: "google/gemini-3.8-flash", name: "Gemini 3.8 Flash", badge: "فائق السرعة ⚡" },
   { id: "openai/gpt-6.1-sol", name: "GPT-6.1 Sol", badge: "أحدث استدلال 🧠" },
   { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", badge: "خفيف وسريع 🚀" },
