@@ -12,6 +12,8 @@ import {
   Copy,
   Check,
   Maximize2,
+  Wrench,
+  ShieldCheck,
 } from "lucide-react";
 
 interface VisualCritiqueModalProps {
@@ -20,6 +22,7 @@ interface VisualCritiqueModalProps {
   htmlCode: string;
   durationSeconds: number;
   currentModel?: string;
+  onApplyHealedCode?: (newHtml: string) => void;
 }
 
 interface CritiqueData {
@@ -43,14 +46,56 @@ export function VisualCritiqueModal({
   htmlCode,
   durationSeconds,
   currentModel,
+  onApplyHealedCode,
 }: VisualCritiqueModalProps) {
   const [loading, setLoading] = useState(false);
+  const [healing, setHealing] = useState(false);
   const [critique, setCritique] = useState<CritiqueData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [selectedImageZoom, setSelectedImageZoom] = useState(false);
+  const [healingAudit, setHealingAudit] = useState<any[] | null>(null);
+  const [healingSuccessMsg, setHealingSuccessMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  async function handleAutoHeal() {
+    setHealing(true);
+    setError(null);
+    setHealingSuccessMsg(null);
+
+    try {
+      const response = await fetch("/api/render/heal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: htmlCode,
+          duration: durationSeconds,
+          model: currentModel,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "فشل التصحيح البصري التلقائي");
+      }
+
+      if (data.critique) {
+        setCritique(data.critique);
+      }
+      setHealingAudit(data.sceneAudit || null);
+      setHealingSuccessMsg(data.summaryMessage || "تم تصحيح المشاهد المعيبة بنجاح واعتماد باقي المشاهد السليمة.");
+
+      if (data.healedHtml && onApplyHealedCode) {
+        onApplyHealedCode(data.healedHtml);
+      }
+    } catch (err: any) {
+      console.error("[VisualCritiqueModal] Heal error:", err);
+      setError(err.message || "حدث خطأ أثناء التصحيح التلقائي للمشاهد المعيبة");
+    } finally {
+      setHealing(false);
+    }
+  }
 
   async function handleRunCritique() {
     setLoading(true);
@@ -544,13 +589,117 @@ ${critique.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
                 </div>
               </div>
 
+              {/* Healing Success Message */}
+              {healingSuccessMsg && (
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "var(--radius-md)",
+                    background: "rgba(16, 185, 129, 0.12)",
+                    border: "1px solid rgba(16, 185, 129, 0.4)",
+                    marginBottom: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    color: "var(--emerald)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  <ShieldCheck size={20} />
+                  <span>{healingSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* Scene-by-Scene Protection & Healing Audit */}
+              {healingAudit && healingAudit.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--pale-gold)", display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <ShieldCheck size={16} color="var(--gold)" />
+                    <span>تقرير الفحص والتصحيح الجراحي للمشاهد (Scene-by-Scene Audit):</span>
+                  </label>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+                    {healingAudit.map((sc) => {
+                      const isHealed = sc.status === "SURGICALLY_HEALED";
+                      return (
+                        <div
+                          key={sc.sceneIndex}
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: "var(--radius-md)",
+                            background: isHealed ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.03)",
+                            border: isHealed ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div>
+                            <strong style={{ fontSize: 13, color: "#fff", display: "block" }}>
+                              المشهد {sc.sceneIndex + 1}: {sc.title}
+                            </strong>
+                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                              [{sc.startTime}s - {sc.endTime}s]
+                            </span>
+                          </div>
+
+                          <span
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: isHealed ? "rgba(16, 185, 129, 0.2)" : "rgba(59, 130, 246, 0.15)",
+                              color: isHealed ? "var(--emerald)" : "#93c5fd",
+                              border: isHealed ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(59, 130, 246, 0.3)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {isHealed ? "🛠️ تم تصحيحه" : "🛡️ سليم ومعتمد"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Top Issues List */}
               {critique.topIssues && critique.topIssues.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "#f87171", display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    <AlertTriangle size={15} color="#ef4444" />
-                    <span>أبرز الملاحظات النقدية الدقيقة (Top Diagnosed Issues):</span>
-                  </label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: "#f87171", display: "flex", alignItems: "center", gap: 6 }}>
+                      <AlertTriangle size={15} color="#ef4444" />
+                      <span>الملاحظات النقدية والمشاهد التي تحتاج تحسين:</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleAutoHeal}
+                      disabled={healing}
+                      style={{
+                        padding: "7px 16px",
+                        borderRadius: "var(--radius-md)",
+                        background: healing
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: healing ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 7,
+                        boxShadow: healing ? "none" : "0 0 16px rgba(16, 185, 129, 0.4)",
+                      }}
+                    >
+                      <Wrench size={14} />
+                      <span>{healing ? "جاري تصحيح المشاهد المعيبة حصراً..." : "إصلاح المشاهد المعيبة تلقائياً"}</span>
+                    </button>
+                  </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {critique.topIssues.map((issue, idx) => (

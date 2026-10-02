@@ -19,6 +19,7 @@ import { buildDynamicMotionCatalog } from "@/lib/motion-engine/motion-catalog";
 import { runAgenticEngine } from "@/lib/motion-engine/agentic/agentic-generator";
 import { injectStudioBridge } from "@/lib/motion-engine/studio-bridge";
 import { runStealthSpaceBunnyEngine } from "@/lib/motion-engine/stealth-space-bunny-engine";
+import { runAutoCritiqueAndHeal } from "@/lib/motion-engine/scene-healer";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -30,6 +31,7 @@ const GenerateSchema = z.object({
   brandStyle: z.string().optional(),
   styleId: z.string().optional(),
   mode: z.enum(["pipeline", "legacy", "agentic"]).default("legacy"),
+  autoCritique: z.boolean().optional().default(true),
 });
 
 // ═══════════════════════════════════════════════════
@@ -362,6 +364,35 @@ export async function POST(request: Request) {
       const result = await runLegacy(apiKey, model, input.prompt, input.duration, input.brandStyle, input.styleId);
       htmlCode = result.html;
       title = result.title;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Autonomous Visual Critique & Surgical Scene Healing Loop
+    // ══════════════════════════════════════════════════════════════════════
+    let critiqueReport: any = null;
+    if (input.autoCritique !== false) {
+      if (!phaseLogs) phaseLogs = [];
+      phaseLogs.push("🔍 الانتقال التلقائي لمرحلة التقييم البصري بالذكاء الاصطناعي (Contact Sheet Vision)...");
+
+      try {
+        const healResult = await runAutoCritiqueAndHeal(
+          htmlCode,
+          input.duration,
+          apiKey,
+          model,
+          (msg) => phaseLogs?.push(msg)
+        );
+        if (healResult.wasHealed && healResult.healedHtml) {
+          htmlCode = healResult.healedHtml;
+          phaseLogs.push(`🎯 ${healResult.summaryMessage}`);
+        } else {
+          phaseLogs.push(`🌟 ${healResult.summaryMessage}`);
+        }
+        critiqueReport = healResult;
+      } catch (healError) {
+        console.warn("[v3/generate] Auto critique & heal warning (non-fatal):", healError);
+        phaseLogs.push("⚠️ تم اعتماد وتسليم النسخة المولدة بنجاح.");
+      }
     }
 
     // Always guarantee full Studio API contract

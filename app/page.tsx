@@ -599,6 +599,9 @@ export default function StudioPage() {
         htmlCode={htmlCode}
         durationSeconds={durationSeconds}
         currentModel={currentModel}
+        onApplyHealedCode={(newHtml) => {
+          setHtmlCode(newHtml);
+        }}
       />
 
       <LibraryModal
