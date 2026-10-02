@@ -40,6 +40,7 @@ interface CritiqueData {
   summary: string;
   topIssues: Array<{
     timestamp: string;
+    sceneIndex?: number;
     issue: string;
     fix: string;
     motionDefect?: string;
@@ -727,20 +728,39 @@ ${critique.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
                           gap: 12,
                         }}
                       >
-                        <span
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            background: "rgba(239, 68, 68, 0.2)",
-                            color: "#fca5a5",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                            marginTop: 1,
-                          }}
-                        >
-                          ⏱️ {issue.timestamp}
-                        </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                          <span
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              background: "rgba(239, 68, 68, 0.2)",
+                              color: "#fca5a5",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              marginTop: 1,
+                            }}
+                          >
+                            ⏱️ {issue.timestamp}
+                          </span>
+                          {typeof issue.sceneIndex === "number" && (
+                            <span
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                background: "rgba(217, 182, 109, 0.15)",
+                                color: "var(--pale-gold)",
+                                border: "1px solid rgba(217, 182, 109, 0.3)",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                textAlign: "center",
+                              }}
+                            >
+                              🎬 المشهد {issue.sceneIndex + 1}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                             <strong style={{ fontSize: 13, color: "#fff" }}>

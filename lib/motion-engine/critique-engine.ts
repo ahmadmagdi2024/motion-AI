@@ -6,6 +6,7 @@ import puppeteer from "puppeteer-core";
 import { injectStudioBridge } from "./studio-bridge";
 import { sendOpenRouterRequest } from "@/lib/openrouter/client";
 import { MOTION_RECIPES, findRecipeForDefect } from "./motion-recipes";
+import { extractScenesFromHtml } from "./scene-extractor";
 
 export interface CritiqueIssue {
   timestamp: string;
@@ -52,8 +53,8 @@ function extractKinematicCode(html: string): string {
 }
 
 /**
- * Renders multi-frame motion trajectory sequences and inspects kinematic code
- * via Vision AI for a true MOTION & PHYSICS evaluation.
+ * Renders multi-frame motion trajectory sequences FOR EVERY SCENE IN THE FILM
+ * and inspects kinematic code via Vision AI for a true SCENE-BY-SCENE motion evaluation.
  */
 export async function performVisualCritique(
   html: string,
@@ -100,27 +101,69 @@ export async function performVisualCritique(
     await page.goto(localUrl, { waitUntil: "networkidle0", timeout: 30000 });
     await page.evaluate(() => (document.fonts ? document.fonts.ready : true)).catch(() => {});
 
-    // Pick 4 strategic anchor moments across video duration
-    const anchorMoments = [
-      { name: "Hook & Inception", t0: Math.min(0.5, Math.max(0.2, duration * 0.04)) },
-      { name: "Early Progression", t0: Number((duration * 0.25).toFixed(1)) },
-      { name: "Climax & Acceleration", t0: Number((duration * 0.55).toFixed(1)) },
-      { name: "Outro & Settlement", t0: Number(Math.min(duration - 0.5, duration * 0.85).toFixed(1)) },
-    ];
+    // 1. Extract ALL scenes from HTML to guarantee EVERY scene is individually inspected
+    const extractedScenes = extractScenesFromHtml(html, duration);
+
+    interface SceneAnchor {
+      sceneIndex: number;
+      name: string;
+      title: string;
+      startTime: number;
+      endTime: number;
+      t0: number;
+    }
+
+    const sceneAnchors: SceneAnchor[] = [];
+
+    if (extractedScenes.length > 0) {
+      extractedScenes.forEach((s) => {
+        const sceneDur = Math.max(1, s.endTime - s.startTime);
+        const midT = Number((s.startTime + Math.min(0.8, sceneDur * 0.25)).toFixed(2));
+        sceneAnchors.push({
+          sceneIndex: s.sceneIndex,
+          name: `المشهد ${s.sceneIndex + 1}`,
+          title: s.headline || s.kicker || `مشهد ${s.sceneIndex + 1}`,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          t0: midT,
+        });
+      });
+    } else {
+      // Fallback evenly distributed scenes
+      const numScenes = Math.max(3, Math.round(duration / 7));
+      const segDur = duration / numScenes;
+      for (let i = 0; i < numScenes; i++) {
+        const start = Number((i * segDur).toFixed(1));
+        const end = Number(((i + 1) * segDur).toFixed(1));
+        const midT = Number((start + Math.min(0.8, segDur * 0.25)).toFixed(2));
+        sceneAnchors.push({
+          sceneIndex: i,
+          name: `المشهد ${i + 1}`,
+          title: `مشهد ${i + 1}`,
+          startTime: start,
+          endTime: end,
+          t0: midT,
+        });
+      }
+    }
 
     interface TrajectoryMoment {
+      sceneIndex: number;
       name: string;
+      title: string;
+      startTime: number;
+      endTime: number;
       t0: number;
       frames: { t: number; tag: string; dataUrl: string }[];
     }
 
     const trajectoryMoments: TrajectoryMoment[] = [];
 
-    // Capture 3 consecutive micro-frames (t0, t0 + 200ms, t0 + 400ms) for each moment
-    for (const m of anchorMoments) {
-      const tA = m.t0;
-      const tB = Math.min(duration, Number((m.t0 + 0.20).toFixed(2)));
-      const tC = Math.min(duration, Number((m.t0 + 0.40).toFixed(2)));
+    // Capture 3 consecutive micro-frames (t0, t0 + 200ms, t0 + 400ms) FOR EVERY SCENE
+    for (const sc of sceneAnchors) {
+      const tA = sc.t0;
+      const tB = Math.min(duration, Number((sc.t0 + 0.20).toFixed(2)));
+      const tC = Math.min(duration, Number((sc.t0 + 0.40).toFixed(2)));
 
       const steps = [
         { t: tA, tag: `t=${tA}s (Impulse)` },
@@ -153,13 +196,17 @@ export async function performVisualCritique(
       }
 
       trajectoryMoments.push({
-        name: m.name,
-        t0: m.t0,
+        sceneIndex: sc.sceneIndex,
+        name: sc.name,
+        title: sc.title,
+        startTime: sc.startTime,
+        endTime: sc.endTime,
+        t0: sc.t0,
         frames: momentFrames,
       });
     }
 
-    // Now compose an advanced Motion Trajectory Contact Sheet
+    // Compose comprehensive Motion Trajectory Contact Sheet for ALL scenes
     const contactSheetHtml = `
 <!DOCTYPE html>
 <html>
@@ -277,24 +324,24 @@ export async function performVisualCritique(
 <body>
   <div class="header">
     <div>
-      <div class="title">MOTION STUDIO — DYNAMIC TRAJECTORY STRIP REVIEW</div>
-      <div class="meta">Multi-Frame Kinematic Analysis (Delta t = +200ms) • Closed-Form Springs & Velocity Curves</div>
+      <div class="title">MOTION STUDIO — FULL FILM SCENE-BY-SCENE TRAJECTORY REVIEW</div>
+      <div class="meta">Comprehensive Inspection Across All ${trajectoryMoments.length} Scenes (Δt = +200ms) • Closed-Form Springs & Motion Dynamics</div>
     </div>
-    <div class="badge-chip">Total Duration: ${duration}s • 12 Micro-Frames</div>
+    <div class="badge-chip">Total Scenes: ${trajectoryMoments.length} • ${trajectoryMoments.length * 3} Micro-Frames</div>
   </div>
 
   <div class="moments-container">
     ${trajectoryMoments
       .map(
-        (m, idx) => `
+        (m) => `
       <div class="moment-row">
         <div class="moment-header">
           <div class="moment-name">
-            <span style="color: #d9b66d;">#0${idx + 1}</span>
-            <span>${m.name}</span>
-            <span style="color: #888; font-size: 13px;">[t = ${m.frames[0]?.t}s → ${m.frames[2]?.t}s]</span>
+            <span style="color: #d9b66d;">SCENE #${m.sceneIndex + 1}</span>
+            <span>${m.title}</span>
+            <span style="color: #888; font-size: 13px;">[t = ${m.startTime}s → ${m.endTime}s]</span>
           </div>
-          <span style="font-size: 12px; color: #888;">Trajectory Progression (Δt = 200ms)</span>
+          <span style="font-size: 12px; color: #888;">Scene Trajectory (Δt = 200ms)</span>
         </div>
 
         <div class="strip">
@@ -326,7 +373,8 @@ export async function performVisualCritique(
 </html>`;
 
     const contactPage = await browser.newPage();
-    await contactPage.setViewport({ width: 1300, height: 1600, deviceScaleFactor: 1 });
+    const sheetHeight = Math.max(1400, trajectoryMoments.length * 360 + 150);
+    await contactPage.setViewport({ width: 1300, height: sheetHeight, deviceScaleFactor: 1 });
     await contactPage.setContent(contactSheetHtml, { waitUntil: "load" });
 
     const contactSheetBase64 = (await contactPage.screenshot({
@@ -359,24 +407,29 @@ export async function performVisualCritique(
         ? userModel
         : "google/gemini-2.5-flash";
 
+    const scenesBreakdownText = trajectoryMoments
+      .map(
+        (s) =>
+          `- Scene Index ${s.sceneIndex} (المشهد ${s.sceneIndex + 1}): "${s.title}" [Time Interval: ${s.startTime}s to ${s.endTime}s]`
+      )
+      .join("\n");
+
     const prompt = `You are a world-class Motion Design Director & Kinematics Specialist inspecting a motion graphics film (${duration}s).
-You are evaluating BOTH:
-1. The Multi-Frame Motion Trajectory Sheet (showing consecutive micro-frames [t, t+0.2s, t+0.4s] for 4 key moments).
+CRITICAL DIRECTIVE: YOU MUST INSPECT EVERY SINGLE SCENE INDIVIDUALLY!
+This film contains EXACTLY ${trajectoryMoments.length} distinct scenes:
+${scenesBreakdownText}
+
+YOU ARE EVALUATING BOTH:
+1. The Multi-Frame Motion Trajectory Sheet (showing consecutive micro-frames [t, t+0.2s, t+0.4s] for ALL ${trajectoryMoments.length} scenes).
 2. The kinematic JavaScript animation code used to drive the scenes.
 
-CRITICAL FOCUS: YOU MUST ANALYZE MOTION DYNAMICS, SPEED CURVES, AND KINEMATICS — NOT JUST A STATIC PICTURE!
-1. Inspect the 3-frame progression strips (t -> t+0.2s -> t+0.4s):
-   - Check displacement: Did elements move? Or are they completely motionless across 400ms? (STATIC_FREEZE)
-   - Check speed curves: Is movement linear and robotic with uniform step distances, or does it feature natural acceleration and spring overshoot? (LINEAR_ROBOTIC)
-   - Check typography & card entries: Do all words/cards appear at the exact same moment, or is there a staggered cascade? (UNSTAGGERED)
-   - Check vector paths: Do icons/lines pop in abruptly instead of being drawn progressively? (RIGID_GRAPHICS)
-   - Check camera & depth: Is the canvas flat 2D without subtle push or parallax? (LACK_OF_DEPTH)
+SCENE COVERAGE RULES:
+1. Inspect the 3-frame trajectory strip for EVERY scene listed above (Scene Index 0, 1, 2, 3...).
+2. DO NOT restrict your critique to Scene 0! You must evaluate scenes 0, 1, 2, 3... across the entire film timeline.
+3. For EVERY scene that suffers from static freezes, robotic linear motion, lack of stagger, poor contrast, or overlapping text, create a specific item in "topIssues".
+4. Set "sceneIndex" accurately to match the exact scene (0 for Scene 1, 1 for Scene 2, 2 for Scene 3, etc.) and specify "timestamp" within that scene's time interval.
 
-2. Inspect the JavaScript animation code:
-${animationCode ? animationCode : "// No explicit custom render scripts found or standard CSS used."}
-   Check whether the code uses crude linear math (like t/duration) or natural physics (like window.spring(t, k, d) or window.track).
-
-3. Available Motion Recipes from our verified physics library to prescribe:
+Available Motion Recipes from our verified physics library to prescribe:
 ${recipesSummary}
 
 Respond ONLY with a JSON object following this exact structure:
@@ -391,16 +444,16 @@ Respond ONLY with a JSON object following this exact structure:
     "polish": number,         // 1 to 10 (Luxury, elegance, color palette)
     "overall": number         // 1 to 10 (Weighted overall score)
   },
-  "summary": "ملخص عربي احترافي ومختصر في سطرين عن الجودة الحركية والبصرية للفيلم",
+  "summary": "ملخص عربي احترافي ومختصر في سطرين عن الجودة الحركية والبصرية لكامل مشاهد الفيلم",
   "topIssues": [
     {
-      "timestamp": "مثال: 02.4s",
-      "sceneIndex": 1,
+      "timestamp": "مثال: 08.4s",
+      "sceneIndex": 1,        // Index of the scene (0, 1, 2, 3...)
       "motionDefect": "LINEAR_ROBOTIC أو STATIC_FREEZE أو UNSTAGGERED أو RIGID_GRAPHICS أو LACK_OF_DEPTH",
-      "issue": "وصف العيب الحركي أو البصري بدقة بالعربية",
+      "issue": "وصف العيب الحركي أو البصري في هذا المشهد بدقة بالعربية",
       "recommendedRecipeId": "closedFormSpring أو trackMultiPoint أو kineticTypography أو trimPathDrawOn أو indicatorStretch أو cameraPushDepth أو dropImpactWave",
       "recommendedRecipeName": "اسم الوصفة بالعربية",
-      "fix": "الحل الإخراجي المقترح بدقة",
+      "fix": "الحل الإخراجي المقترح بدقة لبطاقات ونصوص هذا المشهد",
       "prescribedCodeSnippet": "كود JavaScript تطبيقي سريع يوضح المعادلة الموصى بها"
     }
   ],
@@ -449,24 +502,13 @@ Respond ONLY with a JSON object following this exact structure:
           polish: 8.5,
           overall: 8.2,
         },
-        summary: "الفيلم يتمتع بانسيابية حركية جيدة وتوزيع متوازن للعناصر مع مقروئية واضحة.",
-        topIssues: [
-          {
-            timestamp: "01.2s",
-            sceneIndex: 0,
-            motionDefect: "LINEAR_ROBOTIC",
-            issue: "حركة النصوص الأولى يمكن إثراؤها بنوابض فيزيائية",
-            recommendedRecipeId: "closedFormSpring",
-            recommendedRecipeName: "النوابض الفيزيائية المخمدة (ارتداد بالقصور الذاتي)",
-            fix: "استبدال الحركة الخطية بدالة window.spring(localTime, 220, 24)",
-            prescribedCodeSnippet: "const s = window.spring(localTime, 220, 24);",
-          },
-        ],
+        summary: "الفيلم يتمتع بانسيابية حركية جيدة وتوزيع متوازن للعناصر عبر جميع المشاهد.",
+        topIssues: [],
         recommendations: ["تعزيز تباين أزمنة الظهور (Stagger) بين الكلمات والبطاقات"],
       };
     }
 
-    // Normalize top issues to ensure valid motion recipes
+    // Normalize top issues to ensure valid motion recipes & accurate scene indices
     const sanitizedIssues: CritiqueIssue[] = (
       Array.isArray(parsed.topIssues) ? parsed.topIssues : []
     ).map((iss: any) => {
@@ -474,7 +516,7 @@ Respond ONLY with a JSON object following this exact structure:
       const fallbackRecipe = findRecipeForDefect(defect);
       return {
         timestamp: iss.timestamp || "00.0s",
-        sceneIndex: typeof iss.sceneIndex === "number" ? iss.sceneIndex : undefined,
+        sceneIndex: typeof iss.sceneIndex === "number" ? iss.sceneIndex : 0,
         motionDefect: defect,
         issue: iss.issue || "ملاحظة حركية وبصرية",
         recommendedRecipeId: iss.recommendedRecipeId || fallbackRecipe.id,
@@ -498,7 +540,7 @@ Respond ONLY with a JSON object following this exact structure:
       },
       summary:
         parsed.summary ||
-        "تم تحليل مسارات الحركة عبر الإطارات المتعاقبة وفحص كود التحريك الفيزيائي بنجاح.",
+        `تم تحليل مسارات الحركة وفحص جميع مشاهد الفيلم (${trajectoryMoments.length} مشاهد) بنجاح.`,
       topIssues: sanitizedIssues,
       recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
     };

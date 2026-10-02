@@ -170,12 +170,37 @@ export async function runAutoCritiqueAndHeal(
 
   if (Array.isArray(critique.topIssues)) {
     for (const issue of critique.topIssues) {
-      const sec = parseTimestampToSeconds(issue.timestamp);
-      // Find matching scene
-      let matchedScene = sceneIntervals.find((sc) => sec >= sc.start && sec <= sc.end);
-      if (!matchedScene && sceneIntervals.length > 0) {
-        matchedScene = sceneIntervals[0];
+      let matchedScene: (typeof sceneIntervals)[0] | undefined;
+
+      // 1. Direct match by explicit sceneIndex if provided and valid
+      if (
+        typeof issue.sceneIndex === "number" &&
+        issue.sceneIndex >= 0 &&
+        issue.sceneIndex < sceneIntervals.length
+      ) {
+        matchedScene = sceneIntervals[issue.sceneIndex];
       }
+
+      // 2. Fallback to timestamp range matching
+      if (!matchedScene) {
+        const sec = parseTimestampToSeconds(issue.timestamp);
+        matchedScene = sceneIntervals.find((sc) => sec >= sc.start && sec <= sc.end);
+      }
+
+      // 3. Fallback to closest scene by time distance (instead of always scene 0)
+      if (!matchedScene && sceneIntervals.length > 0) {
+        const sec = parseTimestampToSeconds(issue.timestamp);
+        let minDiff = Infinity;
+        sceneIntervals.forEach((sc) => {
+          const mid = (sc.start + sc.end) / 2;
+          const diff = Math.abs(sec - mid);
+          if (diff < minDiff) {
+            minDiff = diff;
+            matchedScene = sc;
+          }
+        });
+      }
+
       if (matchedScene) {
         const list = sceneIssuesMap.get(matchedScene.index) || [];
         list.push(issue);
