@@ -18,7 +18,7 @@ export default function StudioPage() {
   const [videoTitle, setVideoTitle] = useState<string>("فيلم مصنع أرتيك للعطور (النموذج الأصلي)");
   const [currentPrompt, setCurrentPrompt] = useState<string>("");
   const [durationSeconds, setDurationSeconds] = useState<number>(60);
-  const [currentModel, setCurrentModel] = useState<string>("anthropic/claude-3.7-sonnet");
+  const [currentModel, setCurrentModel] = useState<string>("google/gemini-3.8-flash");
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean>(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>("artek-perfumes-default");
 
@@ -204,16 +204,19 @@ export default function StudioPage() {
     duration: number;
     brandStyle?: string;
     styleId?: string;
-    mode?: "pipeline" | "legacy";
+    mode?: "pipeline" | "legacy" | "agentic";
+    model?: string;
   }) {
     if (data.prompt) setCurrentPrompt(data.prompt);
+    const chosenModel = data.model || currentModel;
+    if (data.model) setCurrentModel(data.model);
 
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...data,
-        model: currentModel,
+        model: chosenModel,
         styleId: data.styleId || currentStyleId,
         mode: data.mode || "legacy",
       }),
@@ -495,7 +498,7 @@ export default function StudioPage() {
 
   function handleStyleSelected(style: MotionStyle) {
     setCurrentStyleId(style.id);
-    setCurrentStyleName(style.name.includes("فلات") ? "فلات صلب" : "سينمائي فاخر");
+    setCurrentStyleName(style.name);
   }
 
   return (

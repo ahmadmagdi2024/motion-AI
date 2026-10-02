@@ -10,8 +10,8 @@ export async function sendOpenRouterRequest(
   const appName = process.env.OPENROUTER_APP_NAME || "MotionAI Studio v3";
 
   const controller = new AbortController();
-  // 120 seconds timeout for creative code generation
-  const timeout = setTimeout(() => controller.abort(), 120000);
+  // 270 seconds (4.5 minutes) timeout for creative code generation & multi-turn agents
+  const timeout = setTimeout(() => controller.abort(), 270000);
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -64,7 +64,7 @@ export async function sendOpenRouterRequest(
   } catch (error: any) {
     clearTimeout(timeout);
     if (error.name === "AbortError") {
-      throw new Error("استغرق توليد الكود وقتاً أطول من المتوقع (انتهت مهلة 120 ثانية). جرب اختيار نموذج أسرع.");
+      throw new Error("استغرق توليد الكود وقتاً أطول من المتوقع (تجاوز 4.5 دقائق). جرب اختيار نموذج أسرع مثل Gemini 3.8 Flash أو Claude Sonnet 5.5.");
     }
     throw error;
   }

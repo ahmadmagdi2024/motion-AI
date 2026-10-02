@@ -23,7 +23,8 @@ interface PromptModalProps {
     duration: number;
     brandStyle?: string;
     styleId?: string;
-    mode?: "pipeline" | "legacy";
+    mode?: "pipeline" | "legacy" | "agentic";
+    model?: string;
   }) => Promise<void>;
   apiKeyConfigured: boolean;
   onOpenSettings: () => void;
@@ -59,6 +60,13 @@ const PRESET_IDEAS = [
   },
 ];
 
+const DEFAULT_QUICK_MODELS = [
+  { id: "google/gemini-3.8-flash", name: "Gemini 3.8 Flash", badge: "فائق السرعة ⚡" },
+  { id: "openai/gpt-6.1-sol", name: "GPT-6.1 Sol", badge: "أحدث استدلال 🧠" },
+  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", badge: "خفيف وسريع 🚀" },
+  { id: "openai/gpt-4o", name: "GPT-4o", badge: "شامل ومتوازن 💎" },
+];
+
 export function PromptModal({
   isOpen,
   onClose,
@@ -76,7 +84,23 @@ export function PromptModal({
   const [availableStyles, setAvailableStyles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [stepMessage, setStepMessage] = useState("");
-  const [generationMode, setGenerationMode] = useState<"pipeline" | "legacy">("legacy");
+  const [generationMode, setGenerationMode] = useState<"pipeline" | "legacy" | "agentic">("legacy");
+  const [selectedModel, setSelectedModel] = useState(currentModel);
+  const [customModel, setCustomModel] = useState("");
+  const [isCustomModel, setIsCustomModel] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Sync selected model from props
+  useEffect(() => {
+    setSelectedModel(currentModel);
+    const isPredefined = DEFAULT_QUICK_MODELS.some((m) => m.id === currentModel);
+    if (!isPredefined && currentModel) {
+      setIsCustomModel(true);
+      setCustomModel(currentModel);
+    } else {
+      setIsCustomModel(false);
+    }
+  }, [currentModel, isOpen]);
 
   // Sync selected style and fetch available styles
   useEffect(() => {
@@ -121,24 +145,30 @@ export function PromptModal({
     if (!prompt.trim() || loading) return;
 
     setLoading(true);
+    setErrorMessage("");
     const isPipeline = generationMode === "pipeline";
+    const isAgentic = generationMode === "agentic";
     setStepMessage(
-      isPipeline
+      isAgentic
+        ? "🤖 تشغيل المحرك التفاعلي: استدعاء الأدوات الذكية ومكتبة الحركات..."
+        : isPipeline
         ? "المرحلة 1 من 3: تخطيط المشاهد وتقسيم السيناريو..."
         : "جاري إرسال المتطلبات والأنماط البصرية إلى الذكاء الاصطناعي..."
     );
 
     try {
+      const finalModel = isCustomModel && customModel.trim() ? customModel.trim() : selectedModel;
       await onGenerate({
         prompt: prompt.trim(),
         duration,
         brandStyle: brandStyle.trim() || undefined,
         styleId: activeStyleId,
         mode: generationMode,
+        model: finalModel,
       });
       onClose();
-    } catch (err) {
-      // Keep modal open to show error
+    } catch (err: any) {
+      setErrorMessage(err?.message || "حدث خطأ أثناء الاتصال بالخادم وتوليد الفيديو.");
     } finally {
       setLoading(false);
       setStepMessage("");
@@ -209,7 +239,7 @@ export function PromptModal({
                 إنشاء فيديو موشن جرافيك سينمائي ذكي
               </h2>
               <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                النموذج النشط: <strong style={{ color: "var(--pale-gold)" }}>{currentModel}</strong>
+                النموذج النشط: <strong style={{ color: "var(--pale-gold)" }}>{isCustomModel ? (customModel || "نموذج يدوي") : selectedModel}</strong>
               </span>
             </div>
           </div>
@@ -449,7 +479,7 @@ export function PromptModal({
                     <Layers size={14} color="var(--gold)" />
                     <span>وضع التوليد:</span>
                   </label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                     <button
                       type="button"
                       onClick={() => setGenerationMode("legacy")}
@@ -468,6 +498,26 @@ export function PromptModal({
                       ⚡ الدفعة الواحدة (موصى به ✨)
                       <div style={{ fontSize: 9, color: generationMode === "legacy" ? "rgba(255,255,255,0.7)" : "#666", marginTop: 2, fontWeight: 400 }}>
                         أشكال وعناصر ونمط الألوان
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenerationMode("agentic")}
+                      style={{
+                        padding: "8px 6px",
+                        borderRadius: "var(--radius-md)",
+                        border: generationMode === "agentic" ? "1px solid #10b981" : "1px solid var(--border-subtle)",
+                        background: generationMode === "agentic" ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                        color: generationMode === "agentic" ? "#34d399" : "#888",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textAlign: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🤖 المحرك التفاعلي (جديد ⚡)
+                      <div style={{ fontSize: 9, color: generationMode === "agentic" ? "rgba(255,255,255,0.8)" : "#666", marginTop: 2, fontWeight: 400 }}>
+                        استدعاء أدوات وحركات ذكية
                       </div>
                     </button>
                     <button
@@ -492,6 +542,97 @@ export function PromptModal({
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Quick Model Selector */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Sparkles size={14} color="var(--gold)" />
+                    <span>نموذج الذكاء الاصطناعي (افتراضي وسريع):</span>
+                  </label>
+                  <span style={{ fontSize: 10, color: "var(--pale-gold)", fontFamily: "monospace", direction: "ltr" }}>
+                    {isCustomModel ? (customModel || "custom") : selectedModel}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 6 }}>
+                  {DEFAULT_QUICK_MODELS.map((m) => {
+                    const isSelected = !isCustomModel && selectedModel === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setIsCustomModel(false);
+                          setSelectedModel(m.id);
+                        }}
+                        style={{
+                          padding: "8px 6px",
+                          borderRadius: "var(--radius-md)",
+                          border: isSelected ? "1px solid var(--gold)" : "1px solid var(--border-subtle)",
+                          background: isSelected ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                          color: isSelected ? "var(--pale-gold)" : "#aaa",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textAlign: "center",
+                          cursor: "pointer",
+                          transition: "0.15s",
+                        }}
+                      >
+                        {m.name}
+                        <div style={{ fontSize: 9, color: isSelected ? "var(--emerald)" : "#666", marginTop: 2, fontWeight: 400 }}>
+                          {m.badge}
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Manual Input Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomModel(true)}
+                    style={{
+                      padding: "8px 6px",
+                      borderRadius: "var(--radius-md)",
+                      border: isCustomModel ? "1px solid var(--gold)" : "1px solid var(--border-subtle)",
+                      background: isCustomModel ? "rgba(217, 182, 109, 0.2)" : "rgba(255, 255, 255, 0.03)",
+                      color: isCustomModel ? "var(--pale-gold)" : "#aaa",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textAlign: "center",
+                      cursor: "pointer",
+                      transition: "0.15s",
+                    }}
+                  >
+                    ✏️ إدخال يدوي
+                    <div style={{ fontSize: 9, color: isCustomModel ? "var(--emerald)" : "#666", marginTop: 2, fontWeight: 400 }}>
+                      كتابة اسم النموذج
+                    </div>
+                  </button>
+                </div>
+
+                {isCustomModel && (
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="أدخل معرّف النموذج (e.g. google/gemini-3.8-flash أو openai/gpt-6.1-sol)"
+                      value={customModel}
+                      onChange={(e) => setCustomModel(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        borderRadius: "var(--radius-md)",
+                        border: "1px solid var(--gold)",
+                        background: "rgba(0, 0, 0, 0.45)",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        direction: "ltr",
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Brand Style custom note */}
@@ -536,6 +677,34 @@ export function PromptModal({
                   <strong>قانون التنوع اللوني مفعل:</strong> 60%+ على الأقل من المشاهد بخلفيات فاتحة ومشرقة، والخلفيات الداكنة بحد أقصى 40% لتجنب القتامة.
                 </span>
               </div>
+
+              {/* Error message banner */}
+              {errorMessage && !loading && (
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "var(--radius-md)",
+                    background: "rgba(239, 68, 68, 0.12)",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                    textAlign: "right",
+                  }}
+                >
+                  <div style={{ color: "#ef4444", marginTop: 2, flexShrink: 0 }}>
+                    <Info size={18} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ fontSize: 13, color: "#fca5a5", display: "block", marginBottom: 4 }}>
+                      تنبيه أثناء التوليد:
+                    </strong>
+                    <p style={{ fontSize: 12, color: "#fecaca", margin: 0, lineHeight: 1.6 }}>
+                      {errorMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Progress message while loading */}
               {loading && (

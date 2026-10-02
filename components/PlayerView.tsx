@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   Play,
   Pause,
@@ -25,6 +25,7 @@ import { VoiceoverModal } from "./VoiceoverModal";
 import { TranslateModal } from "./TranslateModal";
 import { getLanguageByCode } from "@/lib/constants/languages";
 import { ProjectTranslation } from "@/lib/db/projects";
+import { injectStudioBridge } from "@/lib/motion-engine/studio-bridge";
 
 interface PlayerViewProps {
   projectId?: string;
@@ -81,18 +82,32 @@ export function PlayerView({
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(ms).padStart(2, "0")}`;
   }
 
+  // Ensure HTML always contains full studio API bridge for preview & playback
+  const playableHtml = useMemo(() => {
+    return injectStudioBridge(htmlCode, durationSeconds);
+  }, [htmlCode, durationSeconds]);
+
   // Periodic state sync with iframe & audio
   useEffect(() => {
     const interval = setInterval(() => {
       try {
         const win = iframeRef.current?.contentWindow as any;
-        if (win && win.__studioAPI) {
-          const t = win.__studioAPI.getTime();
+        const studio = win?.__studioAPI;
+        if (studio) {
+          const t = studio.getTime();
           if (typeof t === "number") {
             setCurrentTime(t);
 
-            // Sync audio playback time
-            if (audioRef.current && !audioRef.current.paused) {
+            // If film reached duration, stop playback cleanly
+            if (t >= durationSeconds) {
+              setIsPlaying(false);
+              if (audioRef.current && !audioRef.current.paused) {
+                audioRef.current.pause();
+              }
+            }
+
+            // Sync audio playback time if drift > 0.25s
+            if (audioRef.current && !audioRef.current.paused && isPlaying) {
               const diff = Math.abs(audioRef.current.currentTime - t);
               if (diff > 0.25) {
                 audioRef.current.currentTime = t;
@@ -100,7 +115,7 @@ export function PlayerView({
             }
           }
 
-          const p = win.__studioAPI.isPlaying();
+          const p = studio.isPlaying();
           if (typeof p === "boolean") {
             setIsPlaying(p);
 
@@ -118,7 +133,7 @@ export function PlayerView({
     }, 100);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [durationSeconds, isPlaying]);
 
   // Update volume on audio element
   useEffect(() => {
@@ -127,65 +142,148 @@ export function PlayerView({
     }
   }, [volume, isMuted]);
 
-  // Ensure audio element loads and buffers when track url changes
+  // When an audio track is added or changed, reset player to 0 and pause
   useEffect(() => {
-    if (audioRef.current && audioTrack?.url) {
-      audioRef.current.load();
+    if (audioTrack?.url) {
+      setCurrentTime(0);
+      setIsPlaying(false);
+
+      try {
+        const win = iframeRef.current?.contentWindow as any;
+        const studio = win?.__studioAPI;
+        if (studio?.stop) {
+          studio.stop();
+          studio.renderAtTime(0);
+        } else if (win?.pauseMotion) {
+          win.pauseMotion();
+          if (win?.renderAtTime) win.renderAtTime(0);
+        }
+      } catch (_) {}
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.load();
+      }
     }
   }, [audioTrack?.url]);
 
   function handleTogglePlay() {
     try {
       const win = iframeRef.current?.contentWindow as any;
-      if (win && win.__studioAPI) {
-        win.__studioAPI.toggle();
-        const nextPlaying = !isPlaying;
-        setIsPlaying(nextPlaying);
+      const studio = win?.__studioAPI;
+      const nextPlaying = !isPlaying;
 
+      // If at or near the end, rewind to 0 before starting
+      let targetTime = currentTime;
+      if (nextPlaying && currentTime >= durationSeconds - 0.2) {
+        targetTime = 0;
+        setCurrentTime(0);
+        if (studio?.renderAtTime) {
+          studio.renderAtTime(0);
+        } else if (win?.renderAtTime) {
+          win.renderAtTime(0);
+        }
         if (audioRef.current) {
-          if (nextPlaying) {
-            audioRef.current.currentTime = currentTime;
-            audioRef.current.play().catch(() => {});
-          } else {
-            audioRef.current.pause();
-          }
+          audioRef.current.currentTime = 0;
         }
       }
-    } catch (e) {}
+
+      if (studio?.toggle) {
+        studio.toggle();
+      } else if (studio?.play && studio?.stop) {
+        if (nextPlaying) studio.play(targetTime);
+        else studio.stop();
+      } else if (win?.playMotion && win?.pauseMotion) {
+        if (nextPlaying) win.playMotion(targetTime);
+        else win.pauseMotion();
+      } else if (win?.motion?.play && win?.motion?.stop) {
+        if (nextPlaying) win.motion.play(targetTime);
+        else win.motion.stop();
+      }
+
+      setIsPlaying(nextPlaying);
+
+      if (audioRef.current) {
+        if (nextPlaying) {
+          audioRef.current.currentTime = targetTime;
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn("[PlayerView] Audio play notice:", err);
+            });
+          }
+        } else {
+          audioRef.current.pause();
+        }
+      }
+    } catch (e) {
+      console.error("[PlayerView] Error in handleTogglePlay:", e);
+    }
   }
 
   function handleRestart() {
     try {
       const win = iframeRef.current?.contentWindow as any;
-      if (win && win.__studioAPI) {
-        win.__studioAPI.renderAtTime(0);
-        setCurrentTime(0);
+      const studio = win?.__studioAPI;
 
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          if (isPlaying) {
-            audioRef.current.play().catch(() => {});
+      if (studio?.renderAtTime) {
+        studio.renderAtTime(0);
+      } else if (win?.renderAtTime) {
+        win.renderAtTime(0);
+      }
+
+      setCurrentTime(0);
+
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        if (isPlaying) {
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {});
           }
         }
       }
-    } catch (e) {}
+
+      if (isPlaying) {
+        if (studio?.play) studio.play(0);
+        else if (win?.playMotion) win.playMotion(0);
+        else if (win?.motion?.play) win.motion.play(0);
+      }
+    } catch (e) {
+      console.error("[PlayerView] Error in handleRestart:", e);
+    }
   }
 
   function handleScrub(timeVal: number) {
     try {
       const win = iframeRef.current?.contentWindow as any;
-      if (win && win.__studioAPI) {
-        win.__studioAPI.stop();
-        win.__studioAPI.renderAtTime(timeVal);
-        setCurrentTime(timeVal);
-        setIsPlaying(false);
+      const studio = win?.__studioAPI;
 
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = timeVal;
-        }
+      if (studio?.stop) {
+        studio.stop();
+      } else if (win?.pauseMotion) {
+        win.pauseMotion();
+      } else if (win?.motion?.stop) {
+        win.motion.stop();
       }
-    } catch (e) {}
+
+      if (studio?.renderAtTime) {
+        studio.renderAtTime(timeVal);
+      } else if (win?.renderAtTime) {
+        win.renderAtTime(timeVal);
+      }
+
+      setCurrentTime(timeVal);
+      setIsPlaying(false);
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = timeVal;
+      }
+    } catch (e) {
+      console.error("[PlayerView] Error in handleScrub:", e);
+    }
   }
 
 
@@ -222,9 +320,16 @@ export function PlayerView({
           src={audioTrack.url}
           preload="auto"
           onEnded={() => {
+            setIsPlaying(false);
             if (audioRef.current) {
               audioRef.current.currentTime = 0;
             }
+            try {
+              const win = iframeRef.current?.contentWindow as any;
+              if (win?.__studioAPI?.stop) {
+                win.__studioAPI.stop();
+              }
+            } catch (_) {}
           }}
         />
       )}
@@ -560,7 +665,7 @@ export function PlayerView({
         >
           <iframe
             ref={iframeRef}
-            srcDoc={htmlCode}
+            srcDoc={playableHtml}
             title="Motion Film Live Preview"
             style={{
               width: "100%",

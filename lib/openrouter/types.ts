@@ -1,6 +1,16 @@
 export type OpenRouterMessage = {
-  role: "system" | "user" | "assistant";
-  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | null | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+  tool_call_id?: string;
+  name?: string;
 };
 
 export type OpenRouterRequest = {
@@ -9,6 +19,8 @@ export type OpenRouterRequest = {
   temperature?: number;
   max_tokens?: number;
   response_format?: any;
+  tools?: any[];
+  tool_choice?: any;
 };
 
 export type OpenRouterSettings = {
@@ -19,32 +31,33 @@ export type OpenRouterSettings = {
 
 export const RECOMMENDED_MODELS = [
   {
-    id: "anthropic/claude-3.7-sonnet",
-    name: "Claude 3.7 Sonnet (القمة في الموشن جرافيك والكود الفني)",
-    description: "الأقوى عالمياً في كتابة كود CSS/SVG الحركي والرسوميات المعقدة بمستوى After Effects",
+    id: "google/gemini-3.8-flash",
+    name: "Gemini 3.8 Flash (فائق السرعة والذكاء الحركي)",
+    description: "سرعة معالجة خاطفة مع استيعاب عميق للغة العربية ودقة عالية في هندسة المشاهد",
     recommended: true,
   },
   {
-    id: "anthropic/claude-3.5-sonnet",
-    name: "Claude 3.5 Sonnet (سريع ومتقن)",
-    description: "إبداع استثنائي في هندسة الحركة والتنسيق البصري المتناغم",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol (أحدث أجيال الاستدلال والإخراج)",
+    description: "إبداع فائق في السيناريوهات وتوليد المنطق البرمجي والرسوميات المتناغمة",
+    recommended: true,
+  },
+  {
+    id: "openai/gpt-4o",
+    name: "GPT-4o (شامل ومتوازن)",
+    description: "أداء موثوق في صياغة المحتوى المتسلسل والأفكار الإعلانية",
     recommended: true,
   },
   {
     id: "google/gemini-2.5-flash",
-    name: "Gemini 2.5 Flash (فائق السرعة)",
-    description: "توليد سريع جداً وذكي مع فهم عميق للغة العربية والسيناريوهات",
+    name: "Gemini 2.5 Flash (سريع وخفيف)",
+    description: "توليد سريع وخفيف للمشاهد البسيطة",
     recommended: true,
   },
   {
     id: "google/gemini-2.5-pro",
     name: "Gemini 2.5 Pro (تفكير عميق)",
     description: "قدرة تحليلية عالية لبناء تفاصيل دقيقة ومعقدة",
-  },
-  {
-    id: "openai/gpt-4o",
-    name: "GPT-4o (شامل ومتوازن)",
-    description: "أداء ممتاز في صياغة المحتوى المتسلسل والأفكار الإعلانية",
   },
   {
     id: "deepseek/deepseek-chat",

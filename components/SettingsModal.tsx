@@ -342,7 +342,7 @@ export function SettingsModal({
                   <div style={{ marginTop: 10 }}>
                     <input
                       type="text"
-                      placeholder="e.g. anthropic/claude-3.7-sonnet:thinking أو openai/gpt-4o"
+                      placeholder="e.g. google/gemini-3.8-flash أو openai/gpt-6.1-sol أو openai/gpt-4o"
                       value={customModel}
                       onChange={(e) => setCustomModel(e.target.value)}
                       style={{

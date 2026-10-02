@@ -15,7 +15,7 @@ export async function GET() {
   const model =
     cookieStore.get("OPENROUTER_MODEL")?.value ||
     process.env.OPENROUTER_MODEL ||
-    "anthropic/claude-3.7-sonnet";
+    "google/gemini-3.8-flash";
 
   const settings: OpenRouterSettings = {
     apiKeyConfigured,

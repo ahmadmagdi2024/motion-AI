@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const translationModel =
       cookieStore.get("OPENROUTER_MODEL")?.value ||
       process.env.OPENROUTER_MODEL ||
-      "anthropic/claude-3.7-sonnet";
+      "google/gemini-3.8-flash";
 
     const ttsModel = "fish-audio/s2.1-pro-free:free";
 

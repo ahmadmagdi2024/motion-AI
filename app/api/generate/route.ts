@@ -16,6 +16,8 @@ import { planScenes } from "@/lib/motion-engine/scene-planner";
 import { generateAllScenes } from "@/lib/motion-engine/scene-generator";
 import { assembleFilm } from "@/lib/motion-engine/scene-assembler";
 import { buildDynamicMotionCatalog } from "@/lib/motion-engine/motion-catalog";
+import { runAgenticEngine } from "@/lib/motion-engine/agentic/agentic-generator";
+import { injectStudioBridge } from "@/lib/motion-engine/studio-bridge";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -26,7 +28,7 @@ const GenerateSchema = z.object({
   model: z.string().optional(),
   brandStyle: z.string().optional(),
   styleId: z.string().optional(),
-  mode: z.enum(["pipeline", "legacy"]).default("legacy"),
+  mode: z.enum(["pipeline", "legacy", "agentic"]).default("legacy"),
 });
 
 // ═══════════════════════════════════════════════════
@@ -211,8 +213,10 @@ async function runLegacy(
       conceptToVisualize: prompt,
       selectedArtisticStyle: selectedStyleInfo ? selectedStyleInfo.name : "Modern Motion Design",
       customBrandAndColorNotes: brandStyle || "طبق لوحة ألوان الهوية المتناسقة بدقة مع النمط المختار",
+      strictTopicIsolation: "موضوع الفيديو وسيناريوه حصري بنسبة 100% لفكرة المستخدم المذكورة أعلاه. النمط الفني يحدد فقط جماليات الرسم والألوان، ويحظر قطيعاً استعارة أي عناصر أو مجازات تخص الملف المرجعي (مثل المراكب أو البحار أو السيارات أو العطور).",
     },
     motionDirectingLaws: {
+      topicIsolationLaw: "قانون استقلال الموضوع الصارم: المشاهد والنصوص والأيقونات تجسد فكرة المستخدم حرفياً وبدون أي تحريف مجازي.",
       visualDominance: "العناصر البصرية والرسوم المتحركة يجب أن تشغل 70% على الأقل من الشاشة، والنصوص مقتضبة وداعمة للصورة.",
       darkThemeCeilingLaw: "قانون سقف المشاهد الداكنة الصارم (40% كحد أقصى): ممنوع منعاً باتاً إنتاج فيلم كامل بخلفيات داكنة! نسبة المشاهد ذات الثيمات الداكنة (Black/OLED/Dark) يجب ألا تتجاوز 40% من إجمالي مشاهد الفيديو. 60% على الأقل من المشاهد يجب أن تكون بخلفيات فاتحة ومشرقة ونقية (أبيض #ffffff، رمادي فاتح فاخر #f8fafc، درجات باستيل/كريمي، أو ألوان هوية فاتحة)، مع ضبط نصوص المشاهد الفاتحة لتكون داكنة عالية التباين والمقروئية (#0f172a أو #1e293b).",
       motionDiversityLaw: "قانون تنوع أساليب الحركة الصارم (منع احتكار المورفينج): ممنوع منعاً باتاً جعل التحول الشكلي (Morphing) هو الحركة السائدة أو الوحيدة في الفيديو! المورفينج مقيد بمرة واحدة كحد أقصى في كامل الفيلم إن لزم. يجب استخدام أساليب حركة متنوعة من قاموس الحركات عبر المشاهد: (1) رسم مسارات SVG الحي Trim Path Draw-On عبر strokeDashoffset، (2) ارتداد زنبركي مرن Elastic Spring Pop-in، (3) حركة كاميرا وعمق بارالاكس Camera Push & Parallax Depth، (4) طباعة حركية Kinetic Typography للأرقام والعناوين، (5) تمدد وانضغاط فيزيائي Squash & Stretch، (6) تموج وانسياب طافي Wave & Flutter. كل مشهد يجب أن يقدم تقنية حركية مختلفة كلياً عن المشهد الآخر!",
@@ -321,7 +325,7 @@ export async function POST(request: Request) {
       input.model ||
       cookieStore.get("OPENROUTER_MODEL")?.value ||
       process.env.OPENROUTER_MODEL ||
-      "anthropic/claude-3.7-sonnet";
+      "google/gemini-3.8-flash";
 
     // Block problematic reasoning-only models
     const lowerModel = model.toLowerCase();
@@ -331,14 +335,19 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const usePipeline = input.mode === "pipeline";
-    console.log(`[v3/generate] Mode: ${usePipeline ? "PIPELINE (Experimental)" : "SINGLE-SHOT (Default & Recommended)"}, Model: ${model}, Duration: ${input.duration}s`);
+    const mode = input.mode || "legacy";
+    console.log(`[v3/generate] Mode: ${mode.toUpperCase()}, Model: ${model}, Duration: ${input.duration}s`);
 
     let htmlCode: string;
     let title: string;
     let phaseLogs: string[] | undefined;
 
-    if (usePipeline) {
+    if (mode === "agentic") {
+      const result = await runAgenticEngine(apiKey, model, input.prompt, input.duration, input.brandStyle, input.styleId);
+      htmlCode = result.html;
+      title = result.title;
+      phaseLogs = result.phaseLogs;
+    } else if (mode === "pipeline") {
       const result = await runPipeline(apiKey, model, input.prompt, input.duration, input.brandStyle);
       htmlCode = result.html;
       title = result.title;
@@ -348,6 +357,9 @@ export async function POST(request: Request) {
       htmlCode = result.html;
       title = result.title;
     }
+
+    // Always guarantee full Studio API contract
+    htmlCode = injectStudioBridge(htmlCode, input.duration);
 
     // Auto-save project
     let savedProjectId: string | undefined;
@@ -370,7 +382,7 @@ export async function POST(request: Request) {
       title,
       durationSeconds: input.duration,
       modelUsed: model,
-      mode: usePipeline ? "pipeline" : "legacy",
+      mode,
       phaseLogs,
       projectId: savedProjectId,
     });

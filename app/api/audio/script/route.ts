@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     const scriptModel =
       cookieStore.get("OPENROUTER_MODEL")?.value ||
       process.env.OPENROUTER_MODEL ||
-      "anthropic/claude-3.7-sonnet";
+      "google/gemini-3.8-flash";
 
     const systemPrompt = `أنت كاتب سيناريو إعلاني ومعلق صوتي محترف (Professional Voiceover Copywriter).
 مهمتك: كتابة نص تعليق صوتي (Narration) سينمائي وجذاب لكل مشهد من مشاهد فيديو الموشن جرافيك المقدم إليك.
