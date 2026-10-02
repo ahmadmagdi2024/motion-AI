@@ -181,7 +181,11 @@ ${scenesHTML}
 
         // Call scene-specific render
         try {
-          SCENES[i].render(localT, el);
+          if (window.__sceneOverrides && typeof window.__sceneOverrides[i] === 'function') {
+            window.__sceneOverrides[i](localT, el);
+          } else if (typeof SCENES[i].render === 'function') {
+            SCENES[i].render(localT, el);
+          }
         } catch(e) {
           console.warn("Scene " + i + " render error:", e.message);
         }

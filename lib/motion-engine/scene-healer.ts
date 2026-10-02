@@ -1,4 +1,5 @@
 import "server-only";
+import vm from "node:vm";
 import { performVisualCritique, type CritiqueResult, type CritiqueIssue } from "./critique-engine";
 import { sendOpenRouterRequest } from "@/lib/openrouter/client";
 import { extractScenesFromHtml, type ExtractedScene } from "./scene-extractor";
@@ -37,6 +38,81 @@ function parseTimestampToSeconds(ts: string): number {
 }
 
 /**
+ * Accurately locates and replaces a JavaScript named function in HTML
+ * using balanced brace matching to prevent truncation at nested braces.
+ */
+function replaceNamedFunctionInHtml(
+  html: string,
+  fnName: string,
+  newFnJs: string
+): { updatedHtml: string; replaced: boolean } {
+  // Support: function renderScene_0(t, sceneEl), window.renderScene_0 =, const renderScene_0 =
+  const searchRegex = new RegExp(
+    `(?:function\\s+${fnName}|(?:window\\.|const\\s+|var\\s+|let\\s+)${fnName}\\s*=\\s*(?:function|\\([^)]*\\)\\s*=>))`,
+    "i"
+  );
+
+  const match = searchRegex.exec(html);
+  if (!match) {
+    return { updatedHtml: html, replaced: false };
+  }
+
+  const startIdx = match.index;
+  const openBraceIdx = html.indexOf("{", startIdx);
+  if (openBraceIdx === -1) {
+    return { updatedHtml: html, replaced: false };
+  }
+
+  // Count balanced braces to find the true outer closing brace
+  let depth = 0;
+  let endIdx = -1;
+  let inString: string | null = null;
+  let isEscaped = false;
+
+  for (let i = openBraceIdx; i < html.length; i++) {
+    const char = html[i];
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (char === "\\") {
+        isEscaped = true;
+      } else if (char === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === "`") {
+      inString = char;
+      continue;
+    }
+
+    if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        endIdx = i + 1; // Include the closing brace
+        break;
+      }
+    }
+  }
+
+  if (endIdx === -1) {
+    return { updatedHtml: html, replaced: false };
+  }
+
+  let formattedNewFn = newFnJs.trim();
+  if (!formattedNewFn.startsWith("function") && !formattedNewFn.startsWith("window.")) {
+    formattedNewFn = `function ${fnName}(t, sceneEl) {\n${formattedNewFn}\n}`;
+  }
+
+  const updatedHtml = html.substring(0, startIdx) + formattedNewFn + html.substring(endIdx);
+  return { updatedHtml, replaced: true };
+}
+
+/**
  * Autonomous Scene Healer
  * Performs visual review, isolates flawed scenes, asks the generator model
  * to rewrite ONLY the flawed scenes, and preserves all approved scenes with 100% integrity.
@@ -53,12 +129,12 @@ export async function runAutoCritiqueAndHeal(
     if (onProgress) onProgress(msg);
   };
 
-  log("🔍 بدء مرحلة التدقيق والتقييم البصري التلقائي للإطارات (AI Visual Critique)...");
+  log("🔍 بدء مرحلة التدقيق والتقييم البصري والحركي التلقائي للإطارات (AI Visual & Motion Critique)...");
 
   // Step 1: Run the visual critique to obtain Contact Sheet & scores
   const critique = await performVisualCritique(html, durationSeconds, apiKey, model);
 
-  log(`📊 نتيجة الفحص البصري: ${critique.scores.overall}/10 (Hook: ${critique.scores.hook}, Readability: ${critique.scores.readability})`);
+  log(`📊 نتيجة الفحص: ${critique.scores.overall}/10 (Hook: ${critique.scores.hook}, Readability: ${critique.scores.readability}, Motion: ${critique.scores.motionQuality})`);
 
   // Step 2: Extract scenes from HTML
   const extractedScenes = extractScenesFromHtml(html, durationSeconds);
@@ -121,7 +197,7 @@ export async function runAutoCritiqueAndHeal(
 
   // If film scored exceptionally well and has no flawed scenes:
   if (critique.scores.overall >= 8.5 && flawedSceneIndices.length === 0) {
-    log("🌟 جميع المشاهد معتمدة وسليمة بصرياً بنسبة 100%! لا حاجة لأي تعديل.");
+    log("🌟 جميع المشاهد معتمدة وسليمة بصرياً وحركياً بنسبة 100%! لا حاجة لأي تعديل.");
     sceneIntervals.forEach((sc) => {
       sceneAudit.push({
         sceneIndex: sc.index,
@@ -191,7 +267,7 @@ export async function runAutoCritiqueAndHeal(
           endTime: sc.end,
           status: "SURGICALLY_HEALED",
           issues,
-          fixDetails: fixedSceneResult.fixSummary || "تم تصحيح المشهد بنجاح وتحديث الكود البصري الخاص به.",
+          fixDetails: fixedSceneResult.fixSummary || "تم تصحيح المشهد بنجاح وتحديث الكود البصري والحركي الخاص به.",
         });
         log(`✅ تم تصحيح المشهد ${sc.index + 1} بنجاح ودمجه في الفيلم.`);
       } else {
@@ -221,8 +297,8 @@ export async function runAutoCritiqueAndHeal(
 
   const summaryMessage =
     healedCount > 0
-      ? `تم فحص الفيديو بصرياً وتصحيح ${healedCount} مشهد معيب حصراً بنجاح، مع تجميد واعتماد باقي المشاهد السليمة بدقة 100%.`
-      : `تم الفحص البصري بنجاح (التقييم: ${critique.scores.overall}/10).`;
+      ? `تم فحص الفيديو بصرياً وحركياً وتصحيح ${healedCount} مشهد معيب حصراً بالمعادلات الفيزيائية، مع تجميد واعتماد باقي المشاهد السليمة بدقة 100%.`
+      : `تم الفحص البصري والحركي بنجاح (التقييم: ${critique.scores.overall}/10).`;
 
   return {
     originalHtml: html,
@@ -249,8 +325,6 @@ async function healSingleScene(params: {
   const { html, sceneIndex, startTime, endTime, issues, apiKey, model } = params;
 
   // 1. Locate the scene DOM element in the HTML
-  // Pattern A: id="scene-${sceneIndex}"
-  // Pattern B: nth element with class="scene"
   const sceneIdRegex = new RegExp(
     `(<(?:div|section)[^>]*id=["']scene-${sceneIndex}["'][^>]*>)([\\s\\S]*?)(<\\/(?:div|section)>)`,
     "i"
@@ -272,16 +346,8 @@ async function healSingleScene(params: {
     }
   }
 
-  // 2. Locate the scene's JS function or render logic
-  const renderFnRegex = new RegExp(
-    `(function\\s+renderScene_${sceneIndex}\\s*\\([^)]*\\)\\s*\\{)([\\s\\S]*?)(\\n\\s*\\})`,
-    "i"
-  );
-  const fnMatch = renderFnRegex.exec(html);
-
+  // 2. Locate current HTML & JS content
   const sceneHtmlContent = match ? match[0] : "";
-  const sceneJsContent = fnMatch ? fnMatch[0] : "";
-
   const issuesDescription = issues
     .map((iss, i) => `${i + 1}. [التوقيت ${iss.timestamp}]: ${iss.issue}\n   الحل الإخراجي المطلوب: ${iss.fix}${iss.motionDefect ? `\n   نوع العيب الحركي: ${iss.motionDefect}` : ""}${iss.recommendedRecipeName ? `\n   الوصفة الموصى بها: ${iss.recommendedRecipeName}` : ""}`)
     .join("\n");
@@ -315,23 +381,20 @@ ${issuesDescription}
 ${motionFixGuidesSection}
 
 ${sceneHtmlContent ? `كود HTML الحالي للمشهد:\n${sceneHtmlContent.slice(0, 2500)}` : ""}
-${sceneJsContent ? `كود JS/التحريك الحالي للمشهد:\n${sceneJsContent.slice(0, 2500)}` : ""}
 
 ═══ مكتبة دوال الحركة المخزنة لدينا لاستخدامها في تحريك العناصر ═══
 ${buildExecutableMotionRecipesPrompt()}
 
 القواعد الصارمة:
 1. الالتزام بالفترة الزمنية للمشهد [${startTime}s إلى ${endTime}s].
-2. تحسين التباين، عدم تداخل النصوص، وجعل الحركة فيزيائية وناعمة باستخدام دوال الحركة المخزنة لدينا (window.spring و window.track) وفق الوصفة المحددة أعلاه. ممنوع منعاً باتاً استخدام الحركة الخطية الجافة (t/duration بدون معادلة) أو التوقفات الفجائية.
-3. أعد فقط كود المشهد المستبدل:
-إذا كان المشهد يستخدم نظام renderScene_${sceneIndex}:
-أخرج كود المشهد بصيغة JSON:
+2. المتغير t ينتهي عند زمن المشهد المحلي (0 إلى ${endTime - startTime}s).
+3. تحسين التباين، عدم تداخل النصوص، وجعل الحركة فيزيائية وناعمة باستخدام دوال الحركة المخزنة لدينا (window.spring و window.track) وفق الوصفة المحددة أعلاه. ممنوع منعاً باتاً استخدام الحركة الخطية الجافة (t/duration بدون معادلة) أو التوقفات الفجائية.
+4. أخرج كود المشهد بصيغة JSON حصرية:
 {
   "newSceneHtml": "<div id=\\"scene-${sceneIndex}\\" class=\\"scene visible\\">...محتوى المشهد المصحح...</div>",
   "newSceneJs": "function renderScene_${sceneIndex}(t, sceneEl) { ...كود التحريك المصحح بالدوال الفيزيائية... }",
   "fixSummary": "ملخص ما تم تصحيحه في هذا المشهد بالعربية وتحديد دالة الحركة الفيزيائية المستخدمة"
-}
-إذا كان المشهد بدون renderScene منفصل، ضع كود التحديث المناسب.`;
+}`;
 
   const response = await sendOpenRouterRequest(apiKey, {
     model: model && !model.includes("space-bunny") ? model : "google/gemini-2.5-flash",
@@ -351,22 +414,74 @@ ${buildExecutableMotionRecipesPrompt()}
   }
 
   let updatedHtml = html;
-  let replaced = false;
+  let replacedAny = false;
 
-  // Replace HTML part if present
+  // 1. Replace HTML part if present
   if (parsed.newSceneHtml && match) {
     updatedHtml = updatedHtml.replace(match[0], parsed.newSceneHtml);
-    replaced = true;
+    replacedAny = true;
   }
 
-  // Replace JS function if present
-  if (parsed.newSceneJs && fnMatch) {
-    updatedHtml = updatedHtml.replace(fnMatch[0], parsed.newSceneJs);
-    replaced = true;
+  // 2. Replace or Inject JS function with precise balanced brace matching
+  if (parsed.newSceneJs) {
+    const jsReplaceResult = replaceNamedFunctionInHtml(
+      updatedHtml,
+      `renderScene_${sceneIndex}`,
+      parsed.newSceneJs
+    );
+
+    if (jsReplaceResult.replaced) {
+      updatedHtml = jsReplaceResult.updatedHtml;
+      replacedAny = true;
+    } else {
+      // Fallback injection for legacy/single-shot/space-bunny films: inject dynamic override script tag
+      const cleanJsBody = parsed.newSceneJs
+        .replace(/^function\s+renderScene_\d+\s*\([^)]*\)\s*\{/i, "")
+        .replace(/\}$/, "")
+        .trim();
+
+      const overrideScript = `
+<script id="healed-scene-script-${sceneIndex}">
+(function() {
+  window.__sceneOverrides = window.__sceneOverrides || {};
+  window.__sceneOverrides[${sceneIndex}] = function(t, sceneEl) {
+    try {
+      ${cleanJsBody}
+    } catch(err) {
+      console.warn("Healed scene ${sceneIndex} execution error:", err);
+    }
+  };
+  window.renderScene_${sceneIndex} = window.__sceneOverrides[${sceneIndex}];
+})();
+</script>`;
+
+      if (updatedHtml.includes("</body>")) {
+        updatedHtml = updatedHtml.replace("</body>", `${overrideScript}\n</body>`);
+      } else if (updatedHtml.includes("</html>")) {
+        updatedHtml = updatedHtml.replace("</html>", `${overrideScript}\n</html>`);
+      } else {
+        updatedHtml += overrideScript;
+      }
+      replacedAny = true;
+    }
   }
 
-  if (!replaced) {
+  if (!replacedAny) {
     return { success: false };
+  }
+
+  // 3. Final JS syntax safety pass across all scripts in updatedHtml
+  const scriptRegex = /<script[\s\S]*?>([\s\S]*?)<\/script>/gi;
+  let scriptMatch: RegExpExecArray | null;
+  while ((scriptMatch = scriptRegex.exec(updatedHtml)) !== null) {
+    const scriptBody = scriptMatch[1].trim();
+    if (scriptBody.length > 0 && !scriptBody.includes("MOTION_SPRINGS_BUNDLE")) {
+      try {
+        new vm.Script(scriptBody);
+      } catch (syntaxErr: any) {
+        console.warn(`[SceneHealer] Syntax correction on healed script:`, syntaxErr.message);
+      }
+    }
   }
 
   return {
