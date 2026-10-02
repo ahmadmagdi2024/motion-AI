@@ -131,6 +131,33 @@ ringEl.style.opacity = String(Math.max(0, 1 - ripple));
 ringEl.style.strokeWidth = String(Math.max(1, (1 - ripple) * 6));`,
     explanationAr: "محاكاة واقعية لارتطام السوائل والقطرات مع تشكل موجات سطحية متسعة ومتلاشية بدقة فيزيائية.",
   },
+
+  sceneExitClearance: {
+    id: "sceneExitClearance",
+    name: "Clean Scene Isolation & Exit Clearance",
+    nameAr: "إفراغ الشاشة وعزل المشاهد (منع التداخل والتراكم)",
+    defectItSolves: ["SCENE_OVERLAP", "TEXT_STACKING", "MISSING_EXIT_MOTION", "تداخل النصوص", "تراكم العناصر", "غياب حركة الخروج"],
+    mathFormula: "if (t < 0 || t > dur) opacity = 0; exitProgress = spring(t - exitStart, 200, 22)",
+    codeSnippet: `// عزل المشهد وإخفاء كافة عناصره خارج زمانه + حركة خروج أنيقة في آخر 0.5 ثانية:
+if (localTime < 0 || localTime > sceneDuration) {
+  sceneEl.style.opacity = "0";
+  sceneEl.style.pointerEvents = "none";
+  sceneEl.style.visibility = "hidden";
+  return;
+}
+
+// حركة الخروج في آخر 0.5 ثانية لإفراغ الكادر بنظافة للمشهد التالي:
+const exitStart = Math.max(0, sceneDuration - 0.5);
+const isExiting = localTime >= exitStart;
+const exitProgress = isExiting
+  ? (typeof window.spring === 'function' ? window.spring(localTime - exitStart, 200, 22) : (localTime - exitStart) / 0.5)
+  : 0;
+
+sceneEl.style.visibility = "visible";
+sceneEl.style.opacity = String(Math.max(0, 1 - exitProgress));
+sceneEl.style.transform = \`scale(\${1 - exitProgress * 0.12}) translateY(\${-exitProgress * 30}px)\`;`,
+    explanationAr: "تضمن عدم تداخل نصوص أو أشكال المشاهد فوق بعضها نهائياً عبر إخفاء المشهد تماماً خارج زمنه وتنفيذ خروج انسيابي في نهايته.",
+  },
 };
 
 /**

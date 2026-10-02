@@ -426,7 +426,7 @@ YOU ARE EVALUATING BOTH:
 SCENE COVERAGE RULES:
 1. Inspect the 3-frame trajectory strip for EVERY scene listed above (Scene Index 0, 1, 2, 3...).
 2. DO NOT restrict your critique to Scene 0! You must evaluate scenes 0, 1, 2, 3... across the entire film timeline.
-3. For EVERY scene that suffers from static freezes, robotic linear motion, lack of stagger, poor contrast, or overlapping text, create a specific item in "topIssues".
+3. For EVERY scene that suffers from static freezes, robotic linear motion, lack of stagger, poor contrast, overlapping text/scenes (SCENE_OVERLAP), or missing exit motion (MISSING_EXIT_MOTION), create a specific item in "topIssues".
 4. Set "sceneIndex" accurately to match the exact scene (0 for Scene 1, 1 for Scene 2, 2 for Scene 3, etc.) and specify "timestamp" within that scene's time interval.
 
 Available Motion Recipes from our verified physics library to prescribe:
@@ -449,7 +449,7 @@ Respond ONLY with a JSON object following this exact structure:
     {
       "timestamp": "مثال: 08.4s",
       "sceneIndex": 1,        // Index of the scene (0, 1, 2, 3...)
-      "motionDefect": "LINEAR_ROBOTIC أو STATIC_FREEZE أو UNSTAGGERED أو RIGID_GRAPHICS أو LACK_OF_DEPTH",
+      "motionDefect": "LINEAR_ROBOTIC أو STATIC_FREEZE أو UNSTAGGERED أو RIGID_GRAPHICS أو LACK_OF_DEPTH أو SCENE_OVERLAP أو MISSING_EXIT_MOTION",
       "issue": "وصف العيب الحركي أو البصري في هذا المشهد بدقة بالعربية",
       "recommendedRecipeId": "closedFormSpring أو trackMultiPoint أو kineticTypography أو trimPathDrawOn أو indicatorStretch أو cameraPushDepth أو dropImpactWave",
       "recommendedRecipeName": "اسم الوصفة بالعربية",

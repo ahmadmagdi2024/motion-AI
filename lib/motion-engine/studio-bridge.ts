@@ -88,6 +88,7 @@ export function injectStudioBridge(html: string, durationSeconds: number = 30): 
       return;
     }
     _time = next;
+    _enforceSceneIsolation(next);
     var fn = _getRenderFn();
     if (fn) {
       try { fn(next); } catch(e) {}
@@ -135,10 +136,35 @@ export function injectStudioBridge(html: string, durationSeconds: number = 30): 
     else _play();
   }
 
+  function _enforceSceneIsolation(t) {
+    try {
+      var scenes = document.querySelectorAll('.scene, [id^="scene-"]');
+      if (scenes.length > 1) {
+        scenes.forEach(function(sc, idx) {
+          var start = parseFloat(sc.getAttribute('data-start'));
+          var end = parseFloat(sc.getAttribute('data-end'));
+
+          if (isNaN(start)) start = (idx * DURATION) / scenes.length;
+          if (isNaN(end)) end = ((idx + 1) * DURATION) / scenes.length;
+
+          if (t < start - 0.05 || t >= end + 0.05) {
+            sc.style.opacity = '0';
+            sc.style.visibility = 'hidden';
+            sc.style.pointerEvents = 'none';
+          } else {
+            sc.style.visibility = 'visible';
+            sc.style.pointerEvents = 'auto';
+          }
+        });
+      }
+    } catch(e) {}
+  }
+
   function _renderAtTime(t) {
     _time = Math.max(0, Math.min(DURATION, Number(t) || 0));
     _originTime = _time;
     _origin = performance.now();
+    _enforceSceneIsolation(_time);
     var fn = _getRenderFn();
     if (fn) {
       try { fn(_time); } catch(e) {}
