@@ -97,14 +97,15 @@ export async function performVisualCritique(
 
       await new Promise((r) => setTimeout(r, 15));
 
-      const screenshotBuf = await page.screenshot({
+      const screenshotBase64 = (await page.screenshot({
         type: "jpeg",
         quality: 85,
-      });
+        encoding: "base64",
+      })) as string;
 
       frameBase64s.push({
         t,
-        dataUrl: `data:image/jpeg;base64,${screenshotBuf.toString("base64")}`,
+        dataUrl: `data:image/jpeg;base64,${screenshotBase64}`,
       });
     }
 
@@ -206,12 +207,12 @@ export async function performVisualCritique(
     await contactPage.setViewport({ width: 1400, height: 1100, deviceScaleFactor: 1 });
     await contactPage.setContent(contactSheetHtml, { waitUntil: "load" });
 
-    const contactSheetBuf = await contactPage.screenshot({
+    const contactSheetBase64 = (await contactPage.screenshot({
       type: "jpeg",
       quality: 88,
-    });
+      encoding: "base64",
+    })) as string;
 
-    const contactSheetBase64 = contactSheetBuf.toString("base64");
     const contactSheetUrl = `data:image/jpeg;base64,${contactSheetBase64}`;
 
     await browser.close();

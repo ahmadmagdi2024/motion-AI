@@ -35,8 +35,20 @@ export async function sendOpenRouterRequest(
         errorBody = await response.text();
       } catch (e) {}
 
-      let errorMessage = "عطل مؤقت عند مزود الخدمة أو النموذج المختار";
-      if (response.status === 401) {
+      let parsedErrorMsg = "";
+      try {
+        const parsed = JSON.parse(errorBody);
+        if (parsed?.error?.message) {
+          parsedErrorMsg = parsed.error.message;
+        }
+      } catch (_) {}
+
+      let errorMessage = parsedErrorMsg || "عطل مؤقت عند مزود الخدمة أو النموذج المختار";
+      if (response.status === 400) {
+        errorMessage = parsedErrorMsg
+          ? `خطأ في صياغة الطلب أو البيانات المرسلة للنموذج: ${parsedErrorMsg}`
+          : "طلب غير صالح لمزود الخدمة (400)";
+      } else if (response.status === 401) {
         errorMessage = "مفتاح OpenRouter API غير صالح أو غير مصرح به";
       } else if (response.status === 402) {
         errorMessage = "رصيدك في OpenRouter غير كافٍ لتشغيل هذا النموذج";
