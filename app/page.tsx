@@ -9,6 +9,7 @@ import { PromptModal } from "@/components/PromptModal";
 import { ExportVideoModal } from "@/components/ExportVideoModal";
 import { LibraryModal, LibraryProject } from "@/components/LibraryModal";
 import { StyleCatalogModal, MotionStyle } from "@/components/StyleCatalogModal";
+import { VisualCritiqueModal } from "@/components/VisualCritiqueModal";
 import type { AudioTrack } from "@/components/AudioPickerModal";
 import { DEFAULT_MOTION_FILM } from "@/lib/motion-engine/master-template";
 import { ProjectTranslation } from "@/lib/db/projects";
@@ -41,6 +42,7 @@ export default function StudioPage() {
   const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isExportVideoOpen, setIsExportVideoOpen] = useState(false);
+  const [isCritiqueOpen, setIsCritiqueOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isStylesOpen, setIsStylesOpen] = useState(false);
   const [audioTrack, setAudioTrack] = useState<AudioTrack | null>(null);
@@ -511,6 +513,7 @@ export default function StudioPage() {
         onOpenGenerator={() => setIsPromptOpen(true)}
         onDownloadHtml={handleDownloadHtml}
         onOpenExportVideo={() => setIsExportVideoOpen(true)}
+        onOpenCritique={() => setIsCritiqueOpen(true)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenStyles={() => setIsStylesOpen(true)}
         selectedStyleName={currentStyleName}
@@ -588,6 +591,14 @@ export default function StudioPage() {
         projectId={currentProjectId}
         audioTrack={audioTrack}
         onUpdateAudioTrack={setAudioTrack}
+      />
+
+      <VisualCritiqueModal
+        isOpen={isCritiqueOpen}
+        onClose={() => setIsCritiqueOpen(false)}
+        htmlCode={htmlCode}
+        durationSeconds={durationSeconds}
+        currentModel={currentModel}
       />
 
       <LibraryModal

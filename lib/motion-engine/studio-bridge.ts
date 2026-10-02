@@ -13,6 +13,8 @@
  * }
  */
 
+import { getSpringsInjectionCode } from "./springs";
+
 export function injectStudioBridge(html: string, durationSeconds: number = 30): string {
   if (!html) return html;
 
@@ -167,11 +169,13 @@ export function injectStudioBridge(html: string, durationSeconds: number = 30): 
 })();
 </script>`;
 
+  const fullInjection = `<script id="__motion_springs_physics__">${getSpringsInjectionCode()}</script>\n${bridgeScript}`;
+
   if (sanitized.includes("</body>")) {
-    return sanitized.replace("</body>", `${bridgeScript}\n</body>`);
+    return sanitized.replace("</body>", `${fullInjection}\n</body>`);
   }
   if (sanitized.includes("</html>")) {
-    return sanitized.replace("</html>", `${bridgeScript}\n</html>`);
+    return sanitized.replace("</html>", `${fullInjection}\n</html>`);
   }
-  return sanitized + "\n" + bridgeScript + "\n</body>\n</html>";
+  return sanitized + "\n" + fullInjection + "\n</body>\n</html>";
 }

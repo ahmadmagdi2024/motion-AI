@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Code2, Download, Settings, Video, Cpu, RotateCcw, FolderOpen, Palette } from "lucide-react";
+import { Sparkles, Code2, Download, Settings, Video, Cpu, RotateCcw, FolderOpen, Palette, Eye } from "lucide-react";
 
 interface HeaderProps {
   apiKeyConfigured: boolean;
@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenGenerator: () => void;
   onDownloadHtml: () => void;
   onOpenExportVideo: () => void;
+  onOpenCritique?: () => void;
   onResetDefault: () => void;
   onOpenLibrary: () => void;
   onOpenStyles: () => void;
@@ -25,6 +26,7 @@ export function Header({
   onOpenGenerator,
   onDownloadHtml,
   onOpenExportVideo,
+  onOpenCritique,
   onResetDefault,
   onOpenLibrary,
   onOpenStyles,
@@ -260,6 +262,33 @@ export function Header({
           <Video size={15} color="var(--emerald)" />
           <span>تصدير فيديو (MP4)</span>
         </button>
+
+        {/* Visual Critique Button */}
+        {onOpenCritique && (
+          <button
+            type="button"
+            onClick={onOpenCritique}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "7px 14px",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(56, 189, 248, 0.12)",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              color: "#ffffff",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 0 12px rgba(56, 189, 248, 0.15)",
+              whiteSpace: "nowrap",
+            }}
+            title="فحص الإطارات البصرية وتوليد Contact Sheet بالذكاء الاصطناعي"
+          >
+            <Eye size={15} color="#38bdf8" />
+            <span>الفحص البصري (Critique)</span>
+          </button>
+        )}
 
         {/* Export HTML */}
         <button

@@ -43,6 +43,7 @@ export function ExportVideoModal({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [filename, setFilename] = useState<string>("");
   const [fps, setFps] = useState<number>(30);
+  const [motionBlur, setMotionBlur] = useState<boolean>(false);
   const [includeAudio, setIncludeAudio] = useState(true);
   const [hasRenderedWithAudio, setHasRenderedWithAudio] = useState(false);
   const [isAudioPickerOpen, setIsAudioPickerOpen] = useState(false);
@@ -91,6 +92,7 @@ export function ExportVideoModal({
           fps,
           projectId,
           audioUrl: activeAudioUrl,
+          motionBlur,
         }),
       });
 
@@ -442,6 +444,66 @@ export function ExportVideoModal({
                   </strong>
                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>حركة فيزيائية فائقة النعومة</span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Motion Blur (Subframe Blending via FFmpeg tmix) */}
+          {!rendering && !finished && (
+            <div
+              onClick={() => setMotionBlur(!motionBlur)}
+              style={{
+                marginBottom: 18,
+                padding: "12px 16px",
+                borderRadius: "var(--radius-md)",
+                background: motionBlur ? "rgba(217, 182, 109, 0.12)" : "rgba(255, 255, 255, 0.02)",
+                border: motionBlur ? "1px solid var(--gold)" : "1px solid var(--border-subtle)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                transition: "all 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: motionBlur ? "rgba(217, 182, 109, 0.25)" : "rgba(255, 255, 255, 0.05)",
+                    color: motionBlur ? "var(--gold-bright)" : "#888",
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Film size={16} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: motionBlur ? "var(--pale-gold)" : "#fff" }}>
+                    بلور الحركة السينمائي (Subframe Motion Blur)
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    دمج 4 إطارات فرعية لكل لقطة عبر FFmpeg لإنتاج انسيابية ضبابية واقعية للأجسام السريعة
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 6,
+                  border: motionBlur ? "2px solid var(--gold)" : "2px solid #555",
+                  background: motionBlur ? "var(--gold)" : "transparent",
+                  display: "grid",
+                  placeItems: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {motionBlur && <Check size={14} color="#000" strokeWidth={3} />}
               </div>
             </div>
           )}

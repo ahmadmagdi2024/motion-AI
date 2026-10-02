@@ -1,4 +1,5 @@
 import { updateProjectRenderUrl } from "@/lib/db/projects";
+import { injectStudioBridge } from "@/lib/motion-engine/studio-bridge";
 import "server-only";
 import { NextResponse } from "next/server";
 import path from "node:path";
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { html, duration = 30, title = "motion-film", fps = 30, projectId, audioUrl } = body;
+    const { html, duration = 30, title = "motion-film", fps = 30, projectId, audioUrl, motionBlur = false } = body;
 
     if (!html || typeof html !== "string") {
       return NextResponse.json(
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
 
     const durationSec = Math.max(2, Math.min(Number(duration) || 30, 120));
     const renderFps = Math.max(15, Math.min(Number(fps) || 30, 60));
-    const totalFrames = Math.round(durationSec * renderFps);
+    const sub = motionBlur ? 4 : 1;
+    const captureFps = renderFps * sub;
+    const totalFrames = Math.round(durationSec * captureFps);
 
     const root = process.cwd();
     const publicDir = path.join(root, "public");
@@ -42,8 +45,9 @@ export async function POST(request: Request) {
     const outputMp4Name = `${uuid}.mp4`;
     const outputMp4Path = path.join(rendersDir, outputMp4Name);
 
-    // Save temporary HTML for Chrome to render
-    await fs.writeFile(tempHtmlPath, html, "utf-8");
+    // Save temporary HTML with universal studio bridge & motion springs for Chrome to render
+    const fullHtml = injectStudioBridge(html, durationSec);
+    await fs.writeFile(tempHtmlPath, fullHtml, "utf-8");
 
     // Launch Google Chrome headless
     const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -66,6 +70,7 @@ export async function POST(request: Request) {
 
     const localUrl = `http://localhost:3005/renders/${tempHtmlName}`;
     await page.goto(localUrl, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.evaluate(() => (document.fonts ? document.fonts.ready : true)).catch(() => {});
 
     // Locate FFmpeg binary
     let ffmpegPath = path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg");
@@ -92,23 +97,36 @@ export async function POST(request: Request) {
       }
     }
 
+    // Build FFmpeg pipeline with optional subframe motion blur filter
+    const vf = sub > 1
+      ? `tmix=frames=${sub},select='eq(mod(n\\,${sub})\\,${sub - 1})',setpts=N/${renderFps}/TB`
+      : "";
+
     const ffmpegArgs = [
       "-y",
       "-f", "image2pipe",
       "-vcodec", "mjpeg",
-      "-r", String(renderFps),
+      "-r", String(captureFps),
       "-i", "-",
     ];
 
     if (audioFilePath) {
+      ffmpegArgs.push("-i", audioFilePath);
+    }
+
+    if (vf) {
+      ffmpegArgs.push("-vf", vf);
+    }
+
+    if (audioFilePath) {
       ffmpegArgs.push(
-        "-i", audioFilePath,
         "-c:v", "libx264",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
         "-preset", "faster",
         "-crf", "18",
+        "-r", String(renderFps),
         "-t", String(durationSec),
         outputMp4Path
       );
@@ -118,6 +136,8 @@ export async function POST(request: Request) {
         "-pix_fmt", "yuv420p",
         "-preset", "faster",
         "-crf", "18",
+        "-r", String(renderFps),
+        "-t", String(durationSec),
         outputMp4Path
       );
     }
@@ -130,11 +150,13 @@ export async function POST(request: Request) {
       ffmpegError += data.toString();
     });
 
-    console.log(`[v3/render] Starting real headless render: ${totalFrames} frames at ${renderFps} FPS...`);
+    console.log(
+      `[v3/render] Starting real headless render: ${totalFrames} frames (${renderFps} FPS, subframes: ${sub}, blur: ${motionBlur})...`
+    );
 
     // Deterministic Frame-by-Frame Rendering
     for (let f = 0; f < totalFrames; f++) {
-      const time = f / renderFps;
+      const time = f / captureFps;
 
       await page.evaluate((t: number) => {
         if (typeof (window as any).renderAtTime === "function") {

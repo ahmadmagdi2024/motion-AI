@@ -34,6 +34,15 @@ if (path && path.getTotalLength) {
 }`
   },
   {
+    name: "closedFormSpring",
+    nameAr: "نوابض فيزيائية دقيقة ومخمدة (Closed-Form Damped Springs)",
+    equation: "spring(t, k=170, d=26) / track(t, keys)",
+    useCase: "حركة نوابض فيزيائية حقيقية ذات كتلة وتخميد وقصور ذاتي فائقة النعومة مع دعم تعقب عدة أهداف track()",
+    codeSnippet: `// نوابض مغلقة دقيقة وسلسة:
+const s = window.spring ? window.spring(t, 200, 22) : ease(clamp(t / 1.0));
+targetEl.style.transform = "scale(" + (0.85 + 0.15 * s) + ") translateY(" + (40 * (1 - s)) + "px)";`
+  },
+  {
     name: "elasticSpring",
     nameAr: "ارتداد مرن وفيزيائي (زنبرك / Pop-in Overshoot)",
     equation: "scale = 1 + Math.sin(p * Math.PI * 3.5) * Math.exp(-p * 6) * 0.4",
