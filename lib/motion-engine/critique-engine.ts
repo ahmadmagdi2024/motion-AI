@@ -5,11 +5,17 @@ import crypto from "node:crypto";
 import puppeteer from "puppeteer-core";
 import { injectStudioBridge } from "./studio-bridge";
 import { sendOpenRouterRequest } from "@/lib/openrouter/client";
+import { MOTION_RECIPES, findRecipeForDefect } from "./motion-recipes";
 
 export interface CritiqueIssue {
   timestamp: string;
+  sceneIndex?: number;
   issue: string;
   fix: string;
+  motionDefect?: string;
+  recommendedRecipeId?: string;
+  recommendedRecipeName?: string;
+  prescribedCodeSnippet?: string;
 }
 
 export interface CritiqueResult {
@@ -18,6 +24,8 @@ export interface CritiqueResult {
     hook: number;
     readability: number;
     motionQuality: number;
+    motionDynamics?: number;
+    physicsRealism?: number;
     variety: number;
     polish: number;
     overall: number;
@@ -28,8 +36,24 @@ export interface CritiqueResult {
 }
 
 /**
- * Renders keyframes into a Contact Sheet and passes them to a Vision AI Model
- * for a comprehensive motion director evaluation.
+ * Extracts animation scripts from HTML for kinematic code inspection
+ */
+function extractKinematicCode(html: string): string {
+  const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  const snippets: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = scriptRegex.exec(html)) !== null) {
+    const raw = m[1].trim();
+    if (!raw.includes("MOTION_SPRINGS_BUNDLE") && raw.length > 20) {
+      snippets.push(raw.slice(0, 3000));
+    }
+  }
+  return snippets.join("\n\n// ──────────────\n\n").slice(0, 4500);
+}
+
+/**
+ * Renders multi-frame motion trajectory sequences and inspects kinematic code
+ * via Vision AI for a true MOTION & PHYSICS evaluation.
  */
 export async function performVisualCritique(
   html: string,
@@ -47,7 +71,7 @@ export async function performVisualCritique(
   const tempHtmlName = `critique-${uuid}.html`;
   const tempHtmlPath = path.join(rendersDir, tempHtmlName);
 
-  // Inject universal bridge so renderAtTime works reliably
+  // Inject universal bridge so renderAtTime & springs work reliably
   const fullHtml = injectStudioBridge(html, duration);
   await fs.writeFile(tempHtmlPath, fullHtml, "utf-8");
 
@@ -69,47 +93,73 @@ export async function performVisualCritique(
     });
 
     const page = await browser.newPage();
-    // 1080x1920 mobile viewport
-    await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
+    // 720x1280 vertical viewport — fast, lightweight, and sharp for frame trajectory capture
+    await page.setViewport({ width: 720, height: 1280, deviceScaleFactor: 1 });
 
     const localUrl = `http://localhost:3005/renders/${tempHtmlName}`;
     await page.goto(localUrl, { waitUntil: "networkidle0", timeout: 30000 });
     await page.evaluate(() => (document.fonts ? document.fonts.ready : true)).catch(() => {});
 
-    // Pick 6 keyframes: 0.5s (hook), 20%, 40%, 60%, 80%, 95%
-    const timestamps = [
-      Math.min(0.6, duration * 0.05),
-      Number((duration * 0.2).toFixed(1)),
-      Number((duration * 0.4).toFixed(1)),
-      Number((duration * 0.6).toFixed(1)),
-      Number((duration * 0.8).toFixed(1)),
-      Number((duration * 0.95).toFixed(1)),
+    // Pick 4 strategic anchor moments across video duration
+    const anchorMoments = [
+      { name: "Hook & Inception", t0: Math.min(0.5, Math.max(0.2, duration * 0.04)) },
+      { name: "Early Progression", t0: Number((duration * 0.25).toFixed(1)) },
+      { name: "Climax & Acceleration", t0: Number((duration * 0.55).toFixed(1)) },
+      { name: "Outro & Settlement", t0: Number(Math.min(duration - 0.5, duration * 0.85).toFixed(1)) },
     ];
 
-    const frameBase64s: { t: number; dataUrl: string }[] = [];
+    interface TrajectoryMoment {
+      name: string;
+      t0: number;
+      frames: { t: number; tag: string; dataUrl: string }[];
+    }
 
-    for (const t of timestamps) {
-      await page.evaluate((timeVal: number) => {
-        if (typeof (window as any).renderAtTime === "function") {
-          (window as any).renderAtTime(timeVal);
-        }
-      }, t);
+    const trajectoryMoments: TrajectoryMoment[] = [];
 
-      await new Promise((r) => setTimeout(r, 15));
+    // Capture 3 consecutive micro-frames (t0, t0 + 200ms, t0 + 400ms) for each moment
+    for (const m of anchorMoments) {
+      const tA = m.t0;
+      const tB = Math.min(duration, Number((m.t0 + 0.20).toFixed(2)));
+      const tC = Math.min(duration, Number((m.t0 + 0.40).toFixed(2)));
 
-      const screenshotBase64 = (await page.screenshot({
-        type: "jpeg",
-        quality: 85,
-        encoding: "base64",
-      })) as string;
+      const steps = [
+        { t: tA, tag: `t=${tA}s (Impulse)` },
+        { t: tB, tag: `t=${tB}s (+200ms Velocity)` },
+        { t: tC, tag: `t=${tC}s (+400ms Overshoot/Settle)` },
+      ];
 
-      frameBase64s.push({
-        t,
-        dataUrl: `data:image/jpeg;base64,${screenshotBase64}`,
+      const momentFrames: { t: number; tag: string; dataUrl: string }[] = [];
+
+      for (const step of steps) {
+        await page.evaluate((timeVal: number) => {
+          if (typeof (window as any).renderAtTime === "function") {
+            (window as any).renderAtTime(timeVal);
+          }
+        }, step.t);
+
+        await new Promise((r) => setTimeout(r, 15));
+
+        const screenshotBase64 = (await page.screenshot({
+          type: "jpeg",
+          quality: 80,
+          encoding: "base64",
+        })) as string;
+
+        momentFrames.push({
+          t: step.t,
+          tag: step.tag,
+          dataUrl: `data:image/jpeg;base64,${screenshotBase64}`,
+        });
+      }
+
+      trajectoryMoments.push({
+        name: m.name,
+        t0: m.t0,
+        frames: momentFrames,
       });
     }
 
-    // Now compose a contact sheet page inside Puppeteer
+    // Now compose an advanced Motion Trajectory Contact Sheet
     const contactSheetHtml = `
 <!DOCTYPE html>
 <html>
@@ -119,7 +169,7 @@ export async function performVisualCritique(
     body {
       margin: 0;
       padding: 24px;
-      background: #090b0c;
+      background: #080a0c;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #fff;
     }
@@ -127,31 +177,66 @@ export async function performVisualCritique(
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(217, 182, 109, 0.3);
+      margin-bottom: 24px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(217, 182, 109, 0.4);
     }
     .title {
-      font-size: 24px;
-      font-weight: 700;
+      font-size: 22px;
+      font-weight: 800;
       color: #d9b66d;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.03em;
     }
     .meta {
-      font-size: 16px;
-      color: #888;
+      font-size: 14px;
+      color: #8b949e;
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+    .badge-chip {
+      background: rgba(217, 182, 109, 0.18);
+      color: #f7d286;
+      border: 1px solid rgba(217, 182, 109, 0.4);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
     }
-    .card {
-      background: #121517;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+    .moments-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .moment-row {
+      background: #111417;
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    .moment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .moment-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #e6edf3;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .strip {
+      display: grid;
+      grid-template-columns: 1fr 30px 1fr 30px 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+    .frame-card {
+      background: #000;
+      border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       position: relative;
     }
     .img-wrap {
@@ -166,35 +251,72 @@ export async function performVisualCritique(
       object-fit: cover;
       display: block;
     }
-    .badge {
+    .frame-badge {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      bottom: 6px;
+      left: 6px;
+      right: 6px;
       background: rgba(0,0,0,0.85);
-      border: 1px solid rgba(217, 182, 109, 0.6);
-      color: #e0b762;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 14px;
+      border: 1px solid rgba(217, 182, 109, 0.5);
+      color: #f7d286;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 11px;
       font-weight: 700;
+      text-align: center;
       backdrop-filter: blur(4px);
+    }
+    .arrow {
+      text-align: center;
+      color: #d9b66d;
+      font-size: 18px;
+      font-weight: 900;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">MOTION STUDIO — CONTACT SHEET REVIEW</div>
-    <div class="meta">Duration: ${duration}s • 6 Keyframes (Contact Strip)</div>
+    <div>
+      <div class="title">MOTION STUDIO — DYNAMIC TRAJECTORY STRIP REVIEW</div>
+      <div class="meta">Multi-Frame Kinematic Analysis (Delta t = +200ms) • Closed-Form Springs & Velocity Curves</div>
+    </div>
+    <div class="badge-chip">Total Duration: ${duration}s • 12 Micro-Frames</div>
   </div>
-  <div class="grid">
-    ${frameBase64s
+
+  <div class="moments-container">
+    ${trajectoryMoments
       .map(
-        (f, idx) => `
-      <div class="card">
-        <div class="img-wrap">
-          <img src="${f.dataUrl}" alt="Frame at ${f.t}s"/>
+        (m, idx) => `
+      <div class="moment-row">
+        <div class="moment-header">
+          <div class="moment-name">
+            <span style="color: #d9b66d;">#0${idx + 1}</span>
+            <span>${m.name}</span>
+            <span style="color: #888; font-size: 13px;">[t = ${m.frames[0]?.t}s → ${m.frames[2]?.t}s]</span>
+          </div>
+          <span style="font-size: 12px; color: #888;">Trajectory Progression (Δt = 200ms)</span>
         </div>
-        <div class="badge">#${idx + 1} • ${f.t}s</div>
+
+        <div class="strip">
+          <div class="frame-card">
+            <div class="img-wrap"><img src="${m.frames[0]?.dataUrl}"/></div>
+            <div class="frame-badge">${m.frames[0]?.tag}</div>
+          </div>
+
+          <div class="arrow">➔</div>
+
+          <div class="frame-card">
+            <div class="img-wrap"><img src="${m.frames[1]?.dataUrl}"/></div>
+            <div class="frame-badge">${m.frames[1]?.tag}</div>
+          </div>
+
+          <div class="arrow">➔</div>
+
+          <div class="frame-card">
+            <div class="img-wrap"><img src="${m.frames[2]?.dataUrl}"/></div>
+            <div class="frame-badge">${m.frames[2]?.tag}</div>
+          </div>
+        </div>
       </div>
     `
       )
@@ -204,12 +326,12 @@ export async function performVisualCritique(
 </html>`;
 
     const contactPage = await browser.newPage();
-    await contactPage.setViewport({ width: 1400, height: 1100, deviceScaleFactor: 1 });
+    await contactPage.setViewport({ width: 1300, height: 1600, deviceScaleFactor: 1 });
     await contactPage.setContent(contactSheetHtml, { waitUntil: "load" });
 
     const contactSheetBase64 = (await contactPage.screenshot({
       type: "jpeg",
-      quality: 88,
+      quality: 85,
       encoding: "base64",
     })) as string;
 
@@ -219,37 +341,71 @@ export async function performVisualCritique(
     browser = null;
 
     if (!apiKey) {
-      throw new Error("يرجى ضبط مفتاح OpenRouter API لتشغيل الفاحص البصري الذكي");
+      throw new Error("يرجى ضبط مفتاح OpenRouter API لتشغيل الفاحص البصري والحركي الذكي");
     }
 
-    // Use a top vision model for critique
-    const visionModel = userModel && !userModel.includes("space-bunny")
-      ? userModel
-      : "google/gemini-2.5-flash";
+    const animationCode = extractKinematicCode(html);
 
-    const prompt = `You are a strict, world-class motion design director inspecting a 6-frame contact sheet of a motion graphics film (${duration} seconds).
-Look closely at typography, alignment, contrast, color harmony, visual hook, pacing, and layout balance across these 6 keyframes.
+    // Format available recipes from our library
+    const recipesSummary = Object.keys(MOTION_RECIPES)
+      .map((k) => {
+        const r = MOTION_RECIPES[k];
+        return `- ID: "${r.id}" | ${r.nameAr} (${r.name}) -> يحل: ${r.defectItSolves.join(", ")}`;
+      })
+      .join("\n");
+
+    const visionModel =
+      userModel && !userModel.includes("space-bunny")
+        ? userModel
+        : "google/gemini-2.5-flash";
+
+    const prompt = `You are a world-class Motion Design Director & Kinematics Specialist inspecting a motion graphics film (${duration}s).
+You are evaluating BOTH:
+1. The Multi-Frame Motion Trajectory Sheet (showing consecutive micro-frames [t, t+0.2s, t+0.4s] for 4 key moments).
+2. The kinematic JavaScript animation code used to drive the scenes.
+
+CRITICAL FOCUS: YOU MUST ANALYZE MOTION DYNAMICS, SPEED CURVES, AND KINEMATICS — NOT JUST A STATIC PICTURE!
+1. Inspect the 3-frame progression strips (t -> t+0.2s -> t+0.4s):
+   - Check displacement: Did elements move? Or are they completely motionless across 400ms? (STATIC_FREEZE)
+   - Check speed curves: Is movement linear and robotic with uniform step distances, or does it feature natural acceleration and spring overshoot? (LINEAR_ROBOTIC)
+   - Check typography & card entries: Do all words/cards appear at the exact same moment, or is there a staggered cascade? (UNSTAGGERED)
+   - Check vector paths: Do icons/lines pop in abruptly instead of being drawn progressively? (RIGID_GRAPHICS)
+   - Check camera & depth: Is the canvas flat 2D without subtle push or parallax? (LACK_OF_DEPTH)
+
+2. Inspect the JavaScript animation code:
+${animationCode ? animationCode : "// No explicit custom render scripts found or standard CSS used."}
+   Check whether the code uses crude linear math (like t/duration) or natural physics (like window.spring(t, k, d) or window.track).
+
+3. Available Motion Recipes from our verified physics library to prescribe:
+${recipesSummary}
 
 Respond ONLY with a JSON object following this exact structure:
 {
   "scores": {
-    "hook": number,         // 1 to 10 (First 2-3s visual impact & punch)
-    "readability": number,  // 1 to 10 (Mobile text legibility, contrast, size)
-    "motionQuality": number,// 1 to 10 (Dynamic energy, physics feel, absence of dead space)
-    "variety": number,      // 1 to 10 (Visual variety and scene evolution every 2-4s)
-    "polish": number,       // 1 to 10 (Luxury, elegance, color palette, brand cohesion)
-    "overall": number       // 1 to 10 (Weighted overall score)
+    "hook": number,           // 1 to 10 (First 2s visual impact & punch)
+    "readability": number,    // 1 to 10 (Mobile text legibility, contrast, size)
+    "motionQuality": number,  // 1 to 10 (Dynamic energy, physics feel, absence of dead space)
+    "motionDynamics": number, // 1 to 10 (Smooth velocity curves and trajectory continuity)
+    "physicsRealism": number, // 1 to 10 (Natural inertia, closed-form springs, no robotic stiffness)
+    "variety": number,        // 1 to 10 (Visual variety and scene evolution)
+    "polish": number,         // 1 to 10 (Luxury, elegance, color palette)
+    "overall": number         // 1 to 10 (Weighted overall score)
   },
-  "summary": "ملخص عربي احترافي ومختصر في سطرين عن الجودة البصرية للفيلم",
+  "summary": "ملخص عربي احترافي ومختصر في سطرين عن الجودة الحركية والبصرية للفيلم",
   "topIssues": [
     {
       "timestamp": "مثال: 02.4s",
-      "issue": "وصف المشكلة البصرية الدقيقة بالعربية (مثل: تداخل نص، ضعف تباين، مساحة ميتة)",
-      "fix": "الحل المقترح بدقة لتحسين هذا الإطار"
+      "sceneIndex": 1,
+      "motionDefect": "LINEAR_ROBOTIC أو STATIC_FREEZE أو UNSTAGGERED أو RIGID_GRAPHICS أو LACK_OF_DEPTH",
+      "issue": "وصف العيب الحركي أو البصري بدقة بالعربية",
+      "recommendedRecipeId": "closedFormSpring أو trackMultiPoint أو kineticTypography أو trimPathDrawOn أو indicatorStretch أو cameraPushDepth أو dropImpactWave",
+      "recommendedRecipeName": "اسم الوصفة بالعربية",
+      "fix": "الحل الإخراجي المقترح بدقة",
+      "prescribedCodeSnippet": "كود JavaScript تطبيقي سريع يوضح المعادلة الموصى بها"
     }
   ],
   "recommendations": [
-    "توصية إخراجية أولى بالعربية لتحسين الجاذبية",
+    "توصية إخراجية حركية أولى بالعربية",
     "توصية إخراجية ثانية",
     "توصية إخراجية ثالثة"
   ]
@@ -278,20 +434,55 @@ Respond ONLY with a JSON object following this exact structure:
     const rawContent = response.choices?.[0]?.message?.content || "{}";
     let parsed: any = {};
     try {
-      // Clean possible markdown code fences
       const cleaned = rawContent.replace(/```(?:json)?\s*([\s\S]*?)```/i, "$1").trim();
       parsed = JSON.parse(cleaned);
     } catch (e) {
       console.warn("[CritiqueEngine] Failed to parse JSON response:", rawContent);
       parsed = {
-        scores: { hook: 8, readability: 8.5, motionQuality: 8, variety: 8, polish: 8.5, overall: 8.2 },
-        summary: "الفيلم يتمتع بتماسك بصري جيد وتوزيع متوازن للعناصر مع مقروئية واضحة.",
+        scores: {
+          hook: 8,
+          readability: 8.5,
+          motionQuality: 8,
+          motionDynamics: 8.2,
+          physicsRealism: 8.3,
+          variety: 8,
+          polish: 8.5,
+          overall: 8.2,
+        },
+        summary: "الفيلم يتمتع بانسيابية حركية جيدة وتوزيع متوازن للعناصر مع مقروئية واضحة.",
         topIssues: [
-          { timestamp: "01.2s", issue: "التباين في المشهد الأول يمكن تعزيزه قليلاً", fix: "رفع سطوع النصوص الرئيسية بالنسبة للخلفية" }
+          {
+            timestamp: "01.2s",
+            sceneIndex: 0,
+            motionDefect: "LINEAR_ROBOTIC",
+            issue: "حركة النصوص الأولى يمكن إثراؤها بنوابض فيزيائية",
+            recommendedRecipeId: "closedFormSpring",
+            recommendedRecipeName: "النوابض الفيزيائية المخمدة (ارتداد بالقصور الذاتي)",
+            fix: "استبدال الحركة الخطية بدالة window.spring(localTime, 220, 24)",
+            prescribedCodeSnippet: "const s = window.spring(localTime, 220, 24);",
+          },
         ],
-        recommendations: ["الحفاظ على الإيقاع المتسارع وتناسق الألوان"]
+        recommendations: ["تعزيز تباين أزمنة الظهور (Stagger) بين الكلمات والبطاقات"],
       };
     }
+
+    // Normalize top issues to ensure valid motion recipes
+    const sanitizedIssues: CritiqueIssue[] = (
+      Array.isArray(parsed.topIssues) ? parsed.topIssues : []
+    ).map((iss: any) => {
+      const defect = iss.motionDefect || "LINEAR_ROBOTIC";
+      const fallbackRecipe = findRecipeForDefect(defect);
+      return {
+        timestamp: iss.timestamp || "00.0s",
+        sceneIndex: typeof iss.sceneIndex === "number" ? iss.sceneIndex : undefined,
+        motionDefect: defect,
+        issue: iss.issue || "ملاحظة حركية وبصرية",
+        recommendedRecipeId: iss.recommendedRecipeId || fallbackRecipe.id,
+        recommendedRecipeName: iss.recommendedRecipeName || fallbackRecipe.nameAr,
+        fix: iss.fix || "تحسين الحركة بالمعادلات الفيزيائية",
+        prescribedCodeSnippet: iss.prescribedCodeSnippet || fallbackRecipe.codeSnippet,
+      };
+    });
 
     return {
       contactSheetUrl,
@@ -299,12 +490,16 @@ Respond ONLY with a JSON object following this exact structure:
         hook: Number(parsed.scores?.hook) || 8,
         readability: Number(parsed.scores?.readability) || 8.5,
         motionQuality: Number(parsed.scores?.motionQuality) || 8,
+        motionDynamics: Number(parsed.scores?.motionDynamics) || 8.2,
+        physicsRealism: Number(parsed.scores?.physicsRealism) || 8.2,
         variety: Number(parsed.scores?.variety) || 8,
         polish: Number(parsed.scores?.polish) || 8.5,
         overall: Number(parsed.scores?.overall) || 8.2,
       },
-      summary: parsed.summary || "تم تحليل الإطارات بنجاح ومراجعة التكوين البصري والمقروئية.",
-      topIssues: Array.isArray(parsed.topIssues) ? parsed.topIssues : [],
+      summary:
+        parsed.summary ||
+        "تم تحليل مسارات الحركة عبر الإطارات المتعاقبة وفحص كود التحريك الفيزيائي بنجاح.",
+      topIssues: sanitizedIssues,
       recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
     };
   } finally {

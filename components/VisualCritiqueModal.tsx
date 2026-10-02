@@ -31,12 +31,22 @@ interface CritiqueData {
     hook: number;
     readability: number;
     motionQuality: number;
+    motionDynamics?: number;
+    physicsRealism?: number;
     variety: number;
     polish: number;
     overall: number;
   };
   summary: string;
-  topIssues: Array<{ timestamp: string; issue: string; fix: string }>;
+  topIssues: Array<{
+    timestamp: string;
+    issue: string;
+    fix: string;
+    motionDefect?: string;
+    recommendedRecipeId?: string;
+    recommendedRecipeName?: string;
+    prescribedCodeSnippet?: string;
+  }>;
   recommendations: string[];
 }
 
@@ -497,7 +507,9 @@ ${critique.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
                 {[
                   { key: "hook", label: "الجذب الأولي (Hook)", score: critique.scores.hook },
                   { key: "readability", label: "المقروئية والتباين", score: critique.scores.readability },
-                  { key: "motionQuality", label: "انسيابية النوابض", score: critique.scores.motionQuality },
+                  { key: "motionQuality", label: "انسيابية الحركة", score: critique.scores.motionQuality },
+                  { key: "motionDynamics", label: "ديناميكية التسارع", score: critique.scores.motionDynamics ?? 8.2 },
+                  { key: "physicsRealism", label: "الواقعية والقصور الذاتي", score: critique.scores.physicsRealism ?? 8.3 },
                   { key: "variety", label: "التنوع البصري", score: critique.scores.variety },
                   { key: "polish", label: "الفخامة والاتساق", score: critique.scores.polish },
                 ].map((item) => (
@@ -730,12 +742,63 @@ ${critique.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
                           ⏱️ {issue.timestamp}
                         </span>
                         <div style={{ flex: 1 }}>
-                          <strong style={{ fontSize: 12, color: "#fff", display: "block", marginBottom: 3 }}>
-                            {issue.issue}
-                          </strong>
-                          <span style={{ fontSize: 11, color: "var(--pale-gold)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                            <strong style={{ fontSize: 13, color: "#fff" }}>
+                              {issue.issue}
+                            </strong>
+                            {issue.motionDefect && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  background: "rgba(239, 68, 68, 0.2)",
+                                  color: "#fca5a5",
+                                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                                }}
+                              >
+                                {issue.motionDefect}
+                              </span>
+                            )}
+                            {issue.recommendedRecipeName && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  background: "rgba(217, 182, 109, 0.15)",
+                                  color: "var(--pale-gold)",
+                                  border: "1px solid rgba(217, 182, 109, 0.3)",
+                                }}
+                              >
+                                🎯 دالة مقترحة: {issue.recommendedRecipeName}
+                              </span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11, color: "var(--pale-gold)", display: "block" }}>
                             💡 الحل المقترح: {issue.fix}
                           </span>
+                          {issue.prescribedCodeSnippet && (
+                            <pre
+                              style={{
+                                margin: "6px 0 0 0",
+                                padding: "6px 10px",
+                                borderRadius: 6,
+                                background: "rgba(0, 0, 0, 0.5)",
+                                border: "1px solid rgba(255, 255, 255, 0.08)",
+                                color: "#93c5fd",
+                                fontSize: 10,
+                                fontFamily: "monospace",
+                                overflowX: "auto",
+                                direction: "ltr",
+                                textAlign: "left",
+                              }}
+                            >
+                              <code>{issue.prescribedCodeSnippet}</code>
+                            </pre>
+                          )}
                         </div>
                       </div>
                     ))}

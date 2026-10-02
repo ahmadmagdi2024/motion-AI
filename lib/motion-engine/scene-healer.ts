@@ -2,6 +2,7 @@ import "server-only";
 import { performVisualCritique, type CritiqueResult, type CritiqueIssue } from "./critique-engine";
 import { sendOpenRouterRequest } from "@/lib/openrouter/client";
 import { extractScenesFromHtml, type ExtractedScene } from "./scene-extractor";
+import { buildExecutableMotionRecipesPrompt, getRecipeById, findRecipeForDefect } from "./motion-recipes";
 
 export interface SceneHealingReport {
   originalHtml: string;
@@ -282,29 +283,53 @@ async function healSingleScene(params: {
   const sceneJsContent = fnMatch ? fnMatch[0] : "";
 
   const issuesDescription = issues
-    .map((iss, i) => `${i + 1}. [التوقيت ${iss.timestamp}]: ${iss.issue}\n   الحل الإخراجي المطلوب: ${iss.fix}`)
+    .map((iss, i) => `${i + 1}. [التوقيت ${iss.timestamp}]: ${iss.issue}\n   الحل الإخراجي المطلوب: ${iss.fix}${iss.motionDefect ? `\n   نوع العيب الحركي: ${iss.motionDefect}` : ""}${iss.recommendedRecipeName ? `\n   الوصفة الموصى بها: ${iss.recommendedRecipeName}` : ""}`)
     .join("\n");
 
+  const motionFixGuides: string[] = [];
+  for (const iss of issues) {
+    const recipe = iss.recommendedRecipeId
+      ? getRecipeById(iss.recommendedRecipeId)
+      : findRecipeForDefect(iss.motionDefect || iss.issue);
+    if (recipe) {
+      motionFixGuides.push(`✨ الوصفة الحركية الفيزيائية المعتمدة لعلاج [${iss.issue}]:
+- اسم الوصفة: ${recipe.nameAr} (${recipe.name})
+- المعادلة الفيزيائية: ${recipe.mathFormula}
+- نموذج الكود الإلزامي القابل للنسخ والاستخدام:
+${recipe.codeSnippet}`);
+    }
+  }
+
+  const motionFixGuidesSection =
+    motionFixGuides.length > 0
+      ? `\n═══ الوصفات الحركية المحددة لعلاج عيوب هذا المشهد ═══\n${motionFixGuides.join("\n\n")}\n`
+      : "";
+
   const prompt = `أنت مخرج ومطور موشن جرافيك فائق الاحترافية.
-لدينا فيلم موشن جرافيك كبير، تم فحصه بصرياً عبر Vision AI واجتازت جميع مشاهده الفحص بنجاح ما عدا المشهد رقم (${sceneIndex + 1}) [من ${startTime} ثانية إلى ${endTime} ثانية].
-المطلوب منك حصراً: إعادة كتابة كود هذا المشهد فقط لإصلاح المشاكل البصرية بدقة متناهية دون لمس أو تغيير أي مشهد آخر.
+لدينا فيلم موشن جرافيك كبير، تم فحصه بصرياً وحركياً عبر Vision AI واجتازت جميع مشاهده الفحص بنجاح ما عدا المشهد رقم (${sceneIndex + 1}) [من ${startTime} ثانية إلى ${endTime} ثانية].
+المطلوب منك حصراً: إعادة كتابة كود هذا المشهد فقط لإصلاح المشاكل الحركية والبصرية بدقة متناهية دون لمس أو تغيير أي مشهد آخر.
 
 المشاكل المرصودة في هذا المشهد:
 ${issuesDescription}
 
+${motionFixGuidesSection}
+
 ${sceneHtmlContent ? `كود HTML الحالي للمشهد:\n${sceneHtmlContent.slice(0, 2500)}` : ""}
 ${sceneJsContent ? `كود JS/التحريك الحالي للمشهد:\n${sceneJsContent.slice(0, 2500)}` : ""}
 
+═══ مكتبة دوال الحركة المخزنة لدينا لاستخدامها في تحريك العناصر ═══
+${buildExecutableMotionRecipesPrompt()}
+
 القواعد الصارمة:
 1. الالتزام بالفترة الزمنية للمشهد [${startTime}s إلى ${endTime}s].
-2. تحسين التباين، عدم تداخل النصوص، جعل الحركة فيزيائية وناعمة (Closed-form Springs عبر spring(t, k, d)).
+2. تحسين التباين، عدم تداخل النصوص، وجعل الحركة فيزيائية وناعمة باستخدام دوال الحركة المخزنة لدينا (window.spring و window.track) وفق الوصفة المحددة أعلاه. ممنوع منعاً باتاً استخدام الحركة الخطية الجافة (t/duration بدون معادلة) أو التوقفات الفجائية.
 3. أعد فقط كود المشهد المستبدل:
 إذا كان المشهد يستخدم نظام renderScene_${sceneIndex}:
 أخرج كود المشهد بصيغة JSON:
 {
   "newSceneHtml": "<div id=\\"scene-${sceneIndex}\\" class=\\"scene visible\\">...محتوى المشهد المصحح...</div>",
-  "newSceneJs": "function renderScene_${sceneIndex}(t, sceneEl) { ...كود التحريك المصحح... }",
-  "fixSummary": "ملخص ما تم تصحيحه في هذا المشهد بالعربية"
+  "newSceneJs": "function renderScene_${sceneIndex}(t, sceneEl) { ...كود التحريك المصحح بالدوال الفيزيائية... }",
+  "fixSummary": "ملخص ما تم تصحيحه في هذا المشهد بالعربية وتحديد دالة الحركة الفيزيائية المستخدمة"
 }
 إذا كان المشهد بدون renderScene منفصل، ضع كود التحديث المناسب.`;
 

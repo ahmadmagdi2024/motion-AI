@@ -7,6 +7,7 @@ import "server-only";
 import vm from "node:vm";
 import { sendOpenRouterRequest } from "@/lib/openrouter/client";
 import { buildMotionCatalog } from "./motion-catalog";
+import { buildExecutableMotionRecipesPrompt } from "./motion-recipes";
 import type { ScenePlanItem, ScenePlan } from "./scene-planner";
 
 export interface GeneratedScene {
@@ -34,7 +35,9 @@ function buildSceneSystemPrompt(plan: ScenePlan, sceneIndex: number): string {
    - التزم بتنفيذ هذه الحركات المحددة بصرياً وبرمجياً باستخدام المعادلات الرياضية.
    - ممنوع منعاً باتاً استبدال هذه الحركات بتحول شكلي (Morphing) أو الاعتماد على تشويه المسارات. أخرج حركة فيزيائية احترافية ملموسة!
 
-═══ الدوال الرياضية المتاحة لك تلقائياً ═══
+═══ الدوال الرياضية والحركية المتاحة لك تلقائياً ═══
+- window.spring(t, k, d): النوابض الفيزيائية الحقيقية مع ارتداد طبيعي (Closed-Form Springs)
+- window.track(t, stops, k, d): تعقب المسارات متعددة الأهداف بسلاسة فيزيائية مستمرة
 - clamp(v, min, max): حصر القيمة في نطاق معين
 - ease(p): حركة ناعمة خروجية (Cubic Out)
 - easeInOut(p): حركة ناعمة في البداية والنهاية
@@ -53,6 +56,8 @@ function buildSceneSystemPrompt(plan: ScenePlan, sceneIndex: number): string {
 ${plan.scenes.map((s, i) => `المشهد ${i}: "${s.title}" [${s.startTime}s → ${s.endTime}s] — ${s.visualConcept} (الحركات: ${s.motionPrimitives?.join(", ") || "افتراضية"})`).join("\n")}
 
 ${buildMotionCatalog()}
+
+${buildExecutableMotionRecipesPrompt()}
 
 ═══ طريقة الإخراج المطلوبة ═══
 اكتب كود المشهد مقسماً بدقة باستخدام الوسوم الثلاثة التالية فقط (بدون JSON وبدون أي كلام جانبي):
